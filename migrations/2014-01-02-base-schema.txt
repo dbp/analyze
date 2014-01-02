@@ -1,0 +1,80 @@
+Description: Baseline schema for app.
+Created: 2014-01-02 16:41:00.631379 UTC
+Depends:
+Apply:
+  CREATE TABLE accounts (
+         id integer NOT NULL REFERENCES snap_auth_user(uid) ON DELETE CASCADE,
+         name text NOT NULL,
+         admin boolean NOT NULL DEFAULT false
+  );
+
+  CREATE TABLE sites (
+         id serial PRIMARY KEY,
+         name text NOT NULL,
+         url text NOT NULL,
+         start_date timestamptz NOT NULL DEFAULT now(),
+         user_link_pattern text,
+         issue_link_pattern text
+  );
+
+  CREATE TABLE tokens (
+         token text NOT NULL DEFAULT md5(random()::text),
+         invalidated timestamptz,
+         created timestamptz,
+         site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE visits_queue (
+         id serial PRIMARY KEY,
+         site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+         url text NOT NULL,
+         render_time float NOT NULL,
+         time timestamptz NOT NULL DEFAULT now()
+  );
+
+  CREATE TABLE day_visits (
+         day date NOT NULL,
+         site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+         url text,
+         hits integer NOT NULL DEFAULT 0,
+         max_time float NOT NULL DEFAULT '-Infinity',
+         min_time float NOT NULL DEFAULT 'Infinity',
+         avg_time float NOT NULL DEFAULT 0,
+         var_time float NOT NULL DEFAULT 0
+  );
+
+  ALTER TABLE day_visits ADD CONSTRAINT day_visits_day_site_id_unique UNIQUE (day, site_id);
+
+  CREATE TABLE errors_queue (
+         id serial PRIMARY KEY,
+         site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+         url text NOT NULL,
+         message text NOT NULL,
+         user_id text
+  );
+
+  CREATE TABLE errors (
+         id serial PRIMARY KEY,
+         site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+         message text NOT NULL,
+         resolved timestamptz,
+         created timestamptz NOT NULL DEFAULT now(),
+         issue_id text
+  );
+
+  CREATE TABLE errors_examples (
+         id serial PRIMARY KEY,
+         error_id integer NOT NULL REFERENCES errors(id) ON DELETE CASCADE,
+         url text NOT NULL,
+         user_id text
+  );
+
+Revert:
+  DROP TABLE errors_examples;
+  DROP TABLE errors;
+  DROP TABLE errors_queue;
+  DROP TABLE day_visits;
+  DROP TABLE visits_queue;
+  DROP TABLE tokens;
+  DROP TABLE sites;
+  DROP TABLE accounts;

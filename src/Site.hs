@@ -6,6 +6,7 @@ module Site
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
+import           Data.Monoid
 import           Data.ByteString (ByteString)
 import qualified Data.Text as T
 import           Snap.Core
@@ -19,6 +20,7 @@ import           Heist
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Application
+import           Handler.Top (notFoundHandler)
 import           Handler.Auth (authRoutes)
 
 
@@ -27,6 +29,7 @@ import           Handler.Auth (authRoutes)
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
 routes = [ ("", with auth authRoutes)
+         , ("", notFoundHandler)
          ]
 
 
@@ -34,7 +37,8 @@ routes = [ ("", with auth authRoutes)
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An analyzer application" Nothing $ do
-    h <- nestSnaplet "" heist $ heistInit "templates"
+    let defaultHeistConfig = mempty { hcLoadTimeSplices = defaultLoadTimeSplices }
+    h <- nestSnaplet "" heist $ heistInit' "templates" defaultHeistConfig
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
     d <- nestSnaplet "db" db pgsInit
