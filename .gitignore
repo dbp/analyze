@@ -1,0 +1,6 @@
+site_key.txt
+*~
+*.cfg
+.hsenv
+dist/
+log/*
