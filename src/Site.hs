@@ -7,7 +7,6 @@ module Site
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Data.Monoid
-import           Data.ByteString (ByteString)
 import qualified Data.Text as T
 import           Snap.Core
 import           Snap.Snaplet
@@ -20,18 +19,7 @@ import           Heist
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Application
-import           Handler.Top (notFoundHandler)
-import           Handler.Auth (authRoutes)
-
-
-
-------------------------------------------------------------------------------
--- | The application's routes.
-routes :: [(ByteString, Handler App App ())]
-routes = [ ("", with auth authRoutes)
-         , ("", notFoundHandler)
-         ]
-
+import           Handler.Top (routes)
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
