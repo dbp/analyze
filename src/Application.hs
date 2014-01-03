@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell, FlexibleInstances, OverloadedStrings #-}
 
 module Application where
 
@@ -10,6 +10,10 @@ import Snap.Snaplet.Heist
 import Snap.Snaplet.Auth
 import Snap.Snaplet.Session
 import Snap.Snaplet.PostgresqlSimple
+import Data.ByteString (ByteString)
+
+rootUrl :: ByteString
+rootUrl = ""
 
 ------------------------------------------------------------------------------
 data App = App

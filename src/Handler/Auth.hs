@@ -6,24 +6,33 @@ module Handler.Auth
 
 import           Control.Applicative
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import           Data.Text (Text)
 import           Data.ByteString (ByteString)
+import           Data.Monoid
+import           Data.Maybe
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Auth
 import           Heist
 import qualified Heist.Interpreted as I
+import           Text.Digestive
+import           Text.Digestive.Snap
+import           Text.Digestive.Heist
 -----------------------------------------------------------------------------
 import           Application
+import           Helpers.Errors
+import           Helpers.Text
+import           Helpers.Forms
+import           State.Accounts
 
-authRoutes :: Handler App (AuthManager App) ()
-authRoutes = route [ ("/login", handleLoginSubmit)
-                   , ("/logout", handleLogout)
+authRoutes :: AppHandler ()
+authRoutes = route [ ("/login", with auth handleLoginSubmit)
+                   , ("/logout", with auth handleLogout)
                    , ("/new_user", handleNewUser)
                    ]
 
-------------------------------------------------------------------------------
--- | Render login form
 handleLogin :: Maybe T.Text -> Handler App (AuthManager App) ()
 handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
   where
@@ -31,26 +40,42 @@ handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
     splice err = "loginError" ## I.textSplice err
 
 
-------------------------------------------------------------------------------
--- | Handle login submit
 handleLoginSubmit :: Handler App (AuthManager App) ()
 handleLoginSubmit =
     loginUser "login" "password" Nothing
-              (\_ -> handleLogin err) (redirect "/")
+              (\_ -> handleLogin err) (do r <- getParam "redirect"
+                                          case r of
+                                            Nothing -> redirect "/"
+                                            Just url -> redirect url)
   where
     err = Just "Unknown user or password"
 
 
-------------------------------------------------------------------------------
--- | Logs out and redirects the user to the site index.
 handleLogout :: Handler App (AuthManager App) ()
 handleLogout = logout >> redirect "/"
 
+data NewUserData = NewUserData Text Text Text
+newUserForm :: Form Text AppHandler NewUserData
+newUserForm = NewUserData
+  <$> "name" .: nameForm Nothing
+  <*> "email" .: emailForm Nothing
+  <*> "password" .: passwordForm
 
-------------------------------------------------------------------------------
--- | Handle new user form submit
-handleNewUser :: Handler App (AuthManager App) ()
-handleNewUser = method GET handleForm <|> method POST handleFormSubmit
-  where
-    handleForm = render "new_user"
-    handleFormSubmit = registerUser "login" "password" >> redirect "/"
+handleNewUser :: AppHandler ()
+handleNewUser = do
+  r <- runForm "new_user" newUserForm
+  case r of
+    (v, Nothing) -> render' v Nothing
+    (v, Just (NewUserData name email password)) -> do
+      res <- with auth $ createUser email (T.encodeUtf8 password)
+      case res of
+        Left failure -> render' v  (Just (tshow failure))
+        Right user ->
+          case userId user of
+            Nothing -> render' v (Just "Error A1: Could not create account.")
+            Just uid -> do
+              newAccount (Account (unUid uid) name False)
+              redirect "/"
+ where render' v msg = renderWithSplices "auth/new_user"
+                       (digestiveSplices v <>
+                        ("message" ## I.textSplice (fromMaybe "" msg)))

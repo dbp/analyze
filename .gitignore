@@ -5,3 +5,4 @@ site_key.txt
 dist/
 log/*
 moo.sh
+moo_test.sh
