@@ -20,7 +20,7 @@ withAccount hndlr = do
       case (userId user) of
         Nothing -> failureError "No id on user account." Nothing
         Just uid -> do
-          ac <- getAccount (unUid uid)
+          ac <- getAccount uid
           case ac of
             Nothing -> failureError "No account for user." (Just $ unUid uid)
             Just account -> hndlr account
@@ -29,4 +29,4 @@ withAccount hndlr = do
 loginRedirect :: AppHandler ()
 loginRedirect = do
   url <- fmap rqURI getRequest
-  redirect $ B.concat [rootUrl, "/login", "?redirect=", urlEncode url]
+  redirect $ B.concat [rootUrl, "/auth/login", "?redirect=", urlEncode url]

@@ -9,7 +9,7 @@
 
     <p>Congrats!  You're logged in as '<loggedInUser/>'</p>
 
-    <p><a href="/logout">Logout</a></p>
+    <p><a href="/auth/logout">Logout</a></p>
   </ifLoggedIn>
 
   <ifLoggedOut>

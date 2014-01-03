@@ -17,8 +17,8 @@ import           Helpers.Auth (withAccount)
 -- | The application's routes.
 routes :: [(ByteString, AppHandler ())]
 routes = [ ("", ifTop $ indexHandler)
-         , ("", authRoutes)
-         , ("", path "site" $ withAccount sitesRoutes)
+         , ("/site", withAccount sitesRoutes)
+         , ("/auth", authRoutes)
          , ("", notFoundHandler)
          ]
 

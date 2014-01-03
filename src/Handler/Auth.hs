@@ -5,6 +5,7 @@ module Handler.Auth
        where
 
 import           Control.Applicative
+import           Control.Monad.Trans
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Text (Text)
@@ -74,7 +75,7 @@ handleNewUser = do
           case userId user of
             Nothing -> render' v (Just "Error A1: Could not create account.")
             Just uid -> do
-              newAccount (Account (unUid uid) name False)
+              newAccount (Account uid name False)
               redirect "/"
  where render' v msg = renderWithSplices "auth/new_user"
                        (digestiveSplices v <>

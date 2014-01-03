@@ -3,6 +3,7 @@
 module Handler.Sites (sitesRoutes) where
 
 import           Control.Applicative
+import           Control.Monad.Trans
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Text (Text)
@@ -33,7 +34,7 @@ import           State.Accounts
 sitesRoutes :: Account -> AppHandler ()
 sitesRoutes account = route $ map (\x -> (fst x, snd x account))
                       [ ("new", newSiteHandler)
-                      , (":id", siteHandler)
+                      -- , (":id", siteHandler)
                       ]
 
 sitePath :: Int -> ByteString

@@ -34,6 +34,7 @@ Executable analyze
     text                      >= 0.11    && < 0.12,
     time                      >= 1.1     && < 1.5,
     xmlhtml                   >= 0.1,
+    postgresql-simple,
     snaplet-postgresql-simple,
     digestive-functors,
     digestive-functors-snap,
