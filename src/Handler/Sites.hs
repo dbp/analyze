@@ -30,11 +30,12 @@ import           Helpers.Text
 import           Helpers.Forms
 import           State.Sites
 import           State.Accounts
+import           Splices.Sites
 
 sitesRoutes :: Account -> AppHandler ()
 sitesRoutes account = route $ map (\x -> (fst x, snd x account))
-                      [ ("new", newSiteHandler)
-                      -- , (":id", siteHandler)
+                      [ ("/new", newSiteHandler)
+                      , ("/:id", siteHandler)
                       ]
 
 sitePath :: Int -> ByteString
@@ -63,4 +64,17 @@ newSiteHandler account = do
           redirect $ sitePath id'
 
 siteHandler :: Account -> AppHandler ()
-siteHandler account = undefined
+siteHandler account = do
+  mid <- getParam "id"
+  case fmap (read.B8.unpack) mid of
+    Nothing -> pass
+    Just id' -> do
+      msite <- getSite id'
+      case msite of
+        Nothing -> pass
+        Just site ->
+          route [ ("", ifTop $ showSiteHandler account site)
+                ]
+
+showSiteHandler :: Account -> Site -> AppHandler ()
+showSiteHandler account site = renderWithSplices "sites/show" (siteSplice site)

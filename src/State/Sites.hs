@@ -2,7 +2,7 @@
 
 module State.Sites where
 
-
+import           Control.Applicative
 import           Data.Text (Text)
 import           Snap.Snaplet.PostgresqlSimple
 import           Data.Time.Clock
@@ -19,6 +19,10 @@ data Site = Site { siteId :: Int
                  , siteIssueLinkPattern :: Text
                  }
 
+instance FromRow Site where
+  fromRow = Site <$> field <*> field <*> field
+                 <*> field <*> field <*> field
+
 clearSites :: AppHandler ()
 clearSites = execute_ "delete from sites" >> return ()
 
@@ -31,3 +35,7 @@ newSite (Site _ n u s ulp ilp) = do
   case res of
     ((x:_):_)-> return (Just x)
     _ -> registerError "newSite: Could not create new site." (Just u) >> return Nothing
+
+
+getSite :: Int -> AppHandler (Maybe Site)
+getSite id' = singleQuery "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites where id = ?" (Only id')

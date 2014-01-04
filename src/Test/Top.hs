@@ -7,6 +7,10 @@ import Data.Monoid
 import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.ByteString as B
+import Data.Time.Calendar
+import Data.Time.Clock
 import Control.Exception (bracket)
 import System.Random (randomIO)
 import Snap.Core
@@ -18,6 +22,7 @@ import Snap.Snaplet.Test
 import Snap.Snaplet.Auth
 import Application
 import Site
+import Helpers.Text
 import Handler.Top
 import State.Accounts
 import State.Sites
@@ -38,6 +43,7 @@ main = do
                                 (M.fromList [ ("new_user.name", ["Jane"])
                                             , ("new_user.email", ["jdoe@c.com"])
                                             , ("new_user.password", ["foobar"])]))
+
   putStrLn "/site/new redirect without login"
   run (get' "/site/new") site assertRedirect
   putStrLn "/site/new success with login"
@@ -55,13 +61,24 @@ main = do
                             , ("new_site.issue_link_pattern", ["http://acme.com/issue/*"])
                             ]))
 
+  site_id <- fmap fromJust $ eval' (newSite (Site (-1) "Some Site" "http://acme.com"
+                                             (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
+  let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
+  putStrLn "/site/:id redirect without login"
+  run (get' site_url) site assertRedirect
+  putStrLn "/site/:id success with login"
+  run (get' site_url) (withUser site) assertSuccess
+  putStrLn "/site/:id has site name in response"
+  cleanup clearAccounts $ cleanup clearSites $
+    responds (get' site_url) (withUser site) "Some Site"
+
 -- Helpers follow
 site :: AppHandler ()
 site = route routes
 
 run :: RequestBuilder IO () -> AppHandler a -> (Response -> Assertion) -> IO ()
 run req hndlr asrt = do
-  res <- runHandler Nothing req hndlr app
+  res <- runHandler (Just "test") req hndlr app
   case res of
     Left err -> assertFailure (show err)
     Right response -> asrt response
@@ -85,6 +102,9 @@ eval' hndlr = fmap (either (error. T.unpack) id) $ evalHandler (Just "test") (ge
 cleanup :: AppHandler () -> IO () -> IO ()
 cleanup cu act = bracket (return ()) (\_ -> runHandler (Just "test") (get' "") cu app) (const act)
                  >> return ()
+
+responds :: RequestBuilder IO () -> AppHandler a -> Text -> IO ()
+responds req hndlr mtch = run req hndlr (assertBodyContains (T.encodeUtf8 mtch))
 
 -- reasonably likely to be unique
 generateEmail :: IO Text
