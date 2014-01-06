@@ -14,6 +14,7 @@ module Snap.Testing
        , responds
        , cleanup
        , eval
+       , modifySite
        ) where
 
 import Data.Map (fromList)
@@ -88,6 +89,16 @@ eval act = do
   lift $ fmap (either (error. unpack) id) $ evalHandler (Just "test") (get "") act app
 
 
+-- Helpers to build app specific functionality
+modifySite :: (Handler b b () -> Handler b b ()) -> SnapTesting b a -> SnapTesting b a
+modifySite f act = do
+  (site, app) <- S.get
+  S.put (f site, app)
+  res <- act
+  S.put (site, app)
+  return res
+
+-- Private helpers
 run :: TestRequest ->  (Response -> Assertion) -> SnapTesting b ()
 run req asrt = do
   (site, app) <- S.get

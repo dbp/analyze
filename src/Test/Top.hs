@@ -4,7 +4,6 @@ module Test.Top where
 
 import Data.Maybe (fromJust)
 import Data.Text (Text)
-import qualified Control.Monad.Trans.State as S (get, put)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -77,12 +76,7 @@ main = runSnapTests (route routes) app $ do
 
 -- Authentication
 withUser :: SnapTesting App a -> SnapTesting App a
-withUser act = do
-  (site, app) <- S.get
-  S.put ((addRandomUser site), app)
-  res <- act
-  S.put (site, app)
-  return res
+withUser = modifySite addRandomUser
 
 -- reasonably likely to be unique
 generateEmail :: IO Text
@@ -109,28 +103,3 @@ addRandomUser hndlr = do
       newAccount (Account (fromJust $ userId au) name False)
       with auth $ forceLogin au
       hndlr
-
--- withAdmin :: AppHandler a -> AppHandler a
--- withAdmin hndlr = do
---   em <- liftIO generateEmail
---   name <- liftIO generateName
---   res <- with auth $ createUser em "password"
---   case res of
---     Left failure ->  do
---       liftIO $ putStrLn "Could not create admin"
---       hndlr
---     Right au -> do
---       newAccount (Account (fromJust $ userId au) name True)
---       with auth $ forceLogin au
---       hndlr
-
--- withLogin :: Text -> AppHandler a -> AppHandler a
--- withLogin id' hndlr = do
---   user <- with auth $ withBackend $ \r -> liftIO $ (lookupByUserId r (UserId id'))
---   case user of
---     Nothing ->  do
---       liftIO $ putStrLn "Could not find user"
---       hndlr
---     Just user' -> do
---       with auth $ forceLogin user'
---       hndlr
