@@ -79,7 +79,7 @@ main = runSnapTests $ do
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
   tlog "/site/:id redirect without login"
   tredirects (tget site_url)
-  tcleanup clearAccounts $ twithUser $ do
+  tcleanup clearAccounts $ tcleanup clearSites $ twithUser $ do
     tlog "/site/:id success with login"
     tsucceeds (tget site_url)
     tlog "/site/:id has site name in response"
