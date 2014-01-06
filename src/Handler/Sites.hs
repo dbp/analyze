@@ -28,6 +28,7 @@ import           Application
 import           Helpers.Errors
 import           Helpers.Text
 import           Helpers.Forms
+import           Helpers.Auth
 import           State.Sites
 import           State.Accounts
 import           Splices.Sites
@@ -72,10 +73,14 @@ siteHandler account = do
       msite <- getSite id'
       case msite of
         Nothing -> pass
-        Just site ->
-          route [ ("", ifTop $ showSiteHandler account site)
-                , ("/edit", editSiteHandler account site)
-                ]
+        Just site -> do
+          authed <- isSiteUser site account
+          case authed of
+            False -> loginRedirect
+            True ->
+              route [ ("", ifTop $ showSiteHandler account site)
+                    , ("/edit", editSiteHandler account site)
+                    ]
 
 showSiteHandler :: Account -> Site -> AppHandler ()
 showSiteHandler account site = renderWithSplices "sites/show" (siteSplice site)

@@ -60,10 +60,13 @@ main = runSnapTests (route routes) app $ do
          , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
          ])
 
-  site_id <- fmap fromJust $ eval (newSite (Site (-1) "Some Site" "http://acme.com"
+  let site = (Site (-1) "Some Site" "http://acme.com"
                                             (UTCTime (fromGregorian 2014 1 1) 0)
                                             "http://acme.com/user/*"
-                                            "http://acme.com/issue/*"))
+                                            "http://acme.com/issue/*")
+  site_id <- fmap fromJust $ eval (newSite site)
+  (account, user) <- fmap fromJust $ eval getRandomUser
+  eval (addSiteUser (site { siteId = site_id }) account)
   -- for use in forms
   let site_params = params [ ("edit_site.name", "Some Site")
                            , ("edit_site.url", "http://acme.com")
@@ -76,8 +79,10 @@ main = runSnapTests (route routes) app $ do
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
   name "/site/:id redirect without login" $
     redirects (get site_url)
-  cleanup clearAccounts $ cleanup clearSites $ withUser $ do
-    name "/site/:id success with login" $
+  name "/site/:id redirects without right user" $
+    withUser $ redirects (get site_url)
+  cleanup clearAccounts $ cleanup clearSites $ loginAs user $ do
+    name "/site/:id success with right login" $
       succeeds (get site_url)
     name "/site/:id has site name in response" $
       responds (get site_url) "Some Site"
@@ -96,7 +101,15 @@ main = runSnapTests (route routes) app $ do
 
 -- Authentication
 withUser :: SnapTesting App a -> SnapTesting App a
-withUser = modifySite addRandomUser
+withUser = modifySite $ \site -> do
+  (_, au) <- fmap fromJust getRandomUser
+  with auth $ forceLogin au
+  site
+
+loginAs :: AuthUser -> SnapTesting App a -> SnapTesting App a
+loginAs au = modifySite $ \site -> do
+  with auth $ forceLogin au
+  site
 
 -- reasonably likely to be unique
 generateEmail :: IO Text
@@ -109,8 +122,8 @@ generateName = do
   int <- randomIO :: IO Int
   return $ T.pack $ "Person #" ++ (show $ abs int)
 
-addRandomUser :: AppHandler a -> AppHandler a
-addRandomUser hndlr = do
+getRandomUser :: AppHandler (Maybe (Account, AuthUser))
+getRandomUser = do
   em <- liftIO generateEmail
   name <- liftIO generateName
   res <- with auth $ createUser em "password"
@@ -118,8 +131,8 @@ addRandomUser hndlr = do
     -- NOTE(dbp 2014-01-03): These are bad errors, but I'm not sure how the types let us do better.
     Left failure -> do
       liftIO $ putStrLn "Could not create user"
-      hndlr
+      return Nothing
     Right au -> do
-      newAccount (Account (fromJust $ userId au) name False)
-      with auth $ forceLogin au
-      hndlr
+      let account = Account (fromJust $ userId au) name False
+      newAccount account
+      return (Just (account, au))

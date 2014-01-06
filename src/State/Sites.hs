@@ -5,11 +5,14 @@ module State.Sites where
 import           Control.Applicative
 import           Data.Text (Text)
 import           Snap.Snaplet.PostgresqlSimple
+import           Snap.Snaplet.Auth (AuthUser(..), UserId(..))
 import           Data.Time.Clock
 ------------------------------------------------------------------------------
 import           Application
+import           Helpers.Text
 import           Helpers.Errors
 import           Helpers.State
+import           State.Accounts
 
 data Site = Site { siteId :: Int
                  , siteName :: Text
@@ -24,7 +27,7 @@ instance FromRow Site where
                  <*> field <*> field <*> field
 
 clearSites :: AppHandler ()
-clearSites = execute_ "delete from sites" >> return ()
+clearSites = void $ execute_ "delete from sites"
 
 countSites :: AppHandler Int
 countSites = numberQuery' "select count(*) from sites"
@@ -41,4 +44,12 @@ getSite :: Int -> AppHandler (Maybe Site)
 getSite id' = singleQuery "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites where id = ?" (Only id')
 
 updateSite :: Site -> AppHandler ()
-updateSite (Site i n u s ulp ilp) = execute "update sites set name = ?, url = ?, start_date = ?, user_link_pattern = ?, issue_link_pattern = ? where id = ?" (n, u, s, ulp, ilp, i) >> return ()
+updateSite (Site i n u s ulp ilp) = void $ execute "update sites set name = ?, url = ?, start_date = ?, user_link_pattern = ?, issue_link_pattern = ? where id = ?" (n, u, s, ulp, ilp, i)
+
+addSiteUser :: Site -> Account -> AppHandler ()
+addSiteUser site account =
+  void $ execute "insert into site_users (site_id, user_id) values (?,?)" (siteId site, accountId account)
+
+isSiteUser :: Site -> Account -> AppHandler Bool
+isSiteUser site account = do
+  fmap (/= 0) $ numberQuery "select count(*) from site_users where site_id = ? and user_id = ?" (siteId site, accountId account)

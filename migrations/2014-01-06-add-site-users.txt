@@ -1,0 +1,12 @@
+Description: (Description here.)
+Created: 2014-01-06 21:50:59.468476 UTC
+Depends: 2014-01-02-base-schema
+Apply:
+  CREATE TABLE site_users (
+    site_id integer NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    user_id integer NOT NULL REFERENCES snap_auth_user(uid) ON DELETE CASCADE
+  );
+  ALTER TABLE site_users ADD CONSTRAINT site_users_unique UNIQUE (site_id, user_id);
+
+Revert:
+  DROP TABLE site_users;
