@@ -17,7 +17,7 @@ data Site = Site { siteId :: Int
                  , siteStartDate :: UTCTime
                  , siteUserLinkPattern :: Text
                  , siteIssueLinkPattern :: Text
-                 }
+                 } deriving (Eq, Show)
 
 instance FromRow Site where
   fromRow = Site <$> field <*> field <*> field
@@ -39,3 +39,6 @@ newSite (Site _ n u s ulp ilp) = do
 
 getSite :: Int -> AppHandler (Maybe Site)
 getSite id' = singleQuery "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites where id = ?" (Only id')
+
+updateSite :: Site -> AppHandler ()
+updateSite (Site i n u s ulp ilp) = execute "update sites set name = ?, url = ?, start_date = ?, user_link_pattern = ?, issue_link_pattern = ? where id = ?" (n, u, s, ulp, ilp, i) >> return ()

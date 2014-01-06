@@ -7,6 +7,7 @@ module Snap.Testing
        , name
        , get
        , post
+       , params
        , succeeds
        , notfound
        , redirects
@@ -17,7 +18,7 @@ module Snap.Testing
        , modifySite
        ) where
 
-import Data.Map (fromList)
+import Data.Map (Map, fromList)
 import Data.ByteString (ByteString)
 import Data.Text (Text, unpack)
 import Data.Text.Encoding (encodeUtf8)
@@ -50,8 +51,11 @@ name s a = do
 get :: ByteString -> TestRequest
 get = flip Test.get mempty
 
-post :: ByteString -> [(ByteString, ByteString)] -> TestRequest
-post url params = Test.postUrlEncoded url (fromList $ map (\x -> (fst x, [snd x])) params)
+post :: ByteString -> Map ByteString [ByteString] -> TestRequest
+post = Test.postUrlEncoded
+
+params :: [(ByteString, ByteString)] -> Map ByteString [ByteString]
+params = fromList . map (\x -> (fst x, [snd x]))
 
 -- Assertions
 succeeds :: TestRequest -> SnapTesting b ()

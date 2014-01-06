@@ -41,21 +41,21 @@ sitesRoutes account = route $ map (\x -> (fst x, snd x account))
 sitePath :: Int -> ByteString
 sitePath id' = B.concat [rootUrl, "/site/", B8.pack $ show id']
 
-data NewSiteData = NewSiteData Text Text Day Text Text
-newSiteForm :: Form Text AppHandler NewSiteData
-newSiteForm = NewSiteData
-              <$> "name" .: nameForm Nothing
-              <*> "url" .: urlForm Nothing
-              <*> "start_date" .: dateForm Nothing
-              <*> "user_link_pattern" .: linkPatternForm Nothing
-              <*> "issue_link_pattern" .: linkPatternForm Nothing
+data SiteData = SiteData Text Text Day Text Text
+siteForm :: Maybe Site -> Form Text AppHandler SiteData
+siteForm m = SiteData
+             <$> "name" .: nameForm (fmap siteName m)
+             <*> "url" .: urlForm (fmap siteUrl m)
+             <*> "start_date" .: dateForm (fmap (utctDay . siteStartDate) m)
+             <*> "user_link_pattern" .: linkPatternForm (fmap siteUserLinkPattern m)
+             <*> "issue_link_pattern" .: linkPatternForm (fmap siteIssueLinkPattern m)
 
 newSiteHandler :: Account -> AppHandler ()
 newSiteHandler account = do
-  r <- runForm "new_site" newSiteForm
+  r <- runForm "new_site" (siteForm Nothing)
   case r of
     (v, Nothing) -> renderWithSplices "sites/new" (digestiveSplices v)
-    (_, Just (NewSiteData name url start_date user_pattern issue_pattern)) -> do
+    (_, Just (SiteData name url start_date user_pattern issue_pattern)) -> do
       mid <- newSite (Site (-1) name url (UTCTime start_date 0) user_pattern issue_pattern)
       case mid of
         Nothing -> displayError "Could not create a new site." Nothing
@@ -74,7 +74,18 @@ siteHandler account = do
         Nothing -> pass
         Just site ->
           route [ ("", ifTop $ showSiteHandler account site)
+                , ("/edit", editSiteHandler account site)
                 ]
 
 showSiteHandler :: Account -> Site -> AppHandler ()
 showSiteHandler account site = renderWithSplices "sites/show" (siteSplice site)
+
+editSiteHandler :: Account -> Site -> AppHandler ()
+editSiteHandler account site = do
+  r <- runForm "edit_site" (siteForm (Just site))
+  case r of
+    (v, Nothing) -> renderWithSplices "sites/edit" (digestiveSplices v)
+    (_, Just (SiteData name url start_date user_pattern issue_pattern)) -> do
+      updateSite (site { siteName = name, siteUrl = url, siteStartDate = (UTCTime start_date 0)
+                       , siteUserLinkPattern = user_pattern, siteIssueLinkPattern = issue_pattern })
+      redirect $ sitePath (siteId site)

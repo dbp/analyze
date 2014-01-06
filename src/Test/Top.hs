@@ -2,6 +2,7 @@
 
 module Test.Top where
 
+import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Control.Monad.Trans (liftIO)
@@ -37,20 +38,19 @@ main = runSnapTests (route routes) app $ do
 
   name "/auth/new_user creates a new account" $
     cleanup clearAccounts $
-    changes (+1) countAccounts (post "/auth/new_user"
+    changes (+1) countAccounts (post "/auth/new_user" $ params
                                 [ ("new_user.name", "Jane")
                                 , ("new_user.email", "jdoe@c.com")
                                 , ("new_user.password", "foobar")])
 
   name "/site/new redirect without login" $
     redirects (get "/site/new")
-
   cleanup clearAccounts $ withUser $ do
     name "/new success with login" $
       succeeds (get "/site/new")
     name "/site/new creates a new site" $
       changes (+1) countSites
-       (post "/site/new" [
+       (post "/site/new" $ params [
          ("new_site.name", "Acme")
          , ("new_site.url", "http://acme.com")
          , ("new_site.start_date.year", "2014")
@@ -61,7 +61,18 @@ main = runSnapTests (route routes) app $ do
          ])
 
   site_id <- fmap fromJust $ eval (newSite (Site (-1) "Some Site" "http://acme.com"
-                                            (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
+                                            (UTCTime (fromGregorian 2014 1 1) 0)
+                                            "http://acme.com/user/*"
+                                            "http://acme.com/issue/*"))
+  -- for use in forms
+  let site_params = params [ ("edit_site.name", "Some Site")
+                           , ("edit_site.url", "http://acme.com")
+                           , ("edit_site.start_date.year", "2014")
+                           , ("edit_site.start_date.month", "1")
+                           , ("edit_site.start_date.day", "1")
+                           , ("edit_site.user_link_pattern", "http://acme.com/user/*")
+                           , ("edit_site.issue_link_pattern", "http://acme.com/issue/*")
+                           ]
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
   name "/site/:id redirect without login" $
     redirects (get site_url)
@@ -70,6 +81,15 @@ main = runSnapTests (route routes) app $ do
       succeeds (get site_url)
     name "/site/:id has site name in response" $
       responds (get site_url) "Some Site"
+    name "/site/:id/edit displays a page with a form on it" $
+      responds (get $ B.append site_url "/edit") "<form"
+    name "/site/:id/edit post changes url" $
+      changes (const "http://newacme.com")
+        (fmap (siteUrl.fromJust) $ getSite site_id)
+        (post (B.append site_url "/edit") $ M.union (params [("edit_site.url", "http://newacme.com")])
+                                                    site_params)
+    name "/site/:id/edit redirects" $
+      redirects (post (B.append site_url "/edit") site_params)
 
 
 -- App level helpers
