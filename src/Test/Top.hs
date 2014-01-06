@@ -59,32 +59,31 @@ main = runSnapTests $ do
   tlog "/site/new redirect without login"
   tredirects (tget "/site/new")
 
-  tlog "/site/new success with login"
-  tcleanup clearAccounts $ twithUser $ tsucceeds (tget "/site/new")
-
-  tlog "/site/new creates a new site"
-  tcleanup clearAccounts $ tcleanup clearSites $
-    twithUser $ tchanges (+1) countSites
-    (tpost "/site/new" [
-        ("new_site.name", "Acme")
-        , ("new_site.url", "http://acme.com")
-        , ("new_site.start_date.year", "2014")
-        , ("new_site.start_date.month", "1")
-        , ("new_site.start_date.day", "3")
-        , ("new_site.user_link_pattern", "http://acme.com/user/*")
-        , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
-        ])
+  tcleanup clearAccounts $ twithUser $ do
+    tlog "/site/new success with login"
+    tsucceeds (tget "/site/new")
+    tlog "/site/new creates a new site"
+    tchanges (+1) countSites
+     (tpost "/site/new" [
+         ("new_site.name", "Acme")
+         , ("new_site.url", "http://acme.com")
+         , ("new_site.start_date.year", "2014")
+         , ("new_site.start_date.month", "1")
+         , ("new_site.start_date.day", "3")
+         , ("new_site.user_link_pattern", "http://acme.com/user/*")
+         , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
+         ])
 
   site_id <- fmap fromJust $ teval (newSite (Site (-1) "Some Site" "http://acme.com"
-                                            (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
+                                               (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
   tlog "/site/:id redirect without login"
   tredirects (tget site_url)
-  tlog "/site/:id success with login"
-  tcleanup clearAccounts $ twithUser $ tsucceeds (tget site_url)
-  tlog "/site/:id has site name in response"
-  tcleanup clearAccounts $ tcleanup clearSites $
-    twithUser $ tresponds (tget site_url) "Some Site"
+  tcleanup clearAccounts $ twithUser $ do
+    tlog "/site/:id success with login"
+    tsucceeds (tget site_url)
+    tlog "/site/:id has site name in response"
+    tresponds (tget site_url) "Some Site"
 
 -- Requests
 tget :: ByteString -> TestRequest
