@@ -39,7 +39,8 @@ Executable analyze
     digestive-functors,
     digestive-functors-snap,
     digestive-functors-heist,
-    random
+    random,
+    old-locale
 
   if flag(old-base)
     build-depends:

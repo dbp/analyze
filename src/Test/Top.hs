@@ -9,16 +9,19 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as B
+import Data.ByteString (ByteString)
 import Data.Time.Calendar
 import Data.Time.Clock
 import Control.Exception (bracket)
+import Control.Monad.Trans
+import Control.Monad.Trans.State
 import System.Random (randomIO)
 import Snap.Core
 import Test.HUnit
 import Control.Monad.Trans
-import Snap.Test hiding (runHandler, evalHandler)
+import qualified Snap.Test as Test hiding (runHandler, evalHandler)
 import Snap.Snaplet
-import Snap.Snaplet.Test
+import qualified Snap.Snaplet.Test as Test
 import Snap.Snaplet.Auth
 import Application
 import Site
@@ -27,84 +30,128 @@ import Handler.Top
 import State.Accounts
 import State.Sites
 
+type SnapTesting a = StateT (AppHandler ()) IO a
+type TestRequest = Test.RequestBuilder IO ()
+
+runSnapTests :: SnapTesting () -> IO ()
+runSnapTests = (flip evalStateT (route routes))
+
+tlog :: String -> SnapTesting ()
+tlog = lift . putStrLn
+
 main :: IO ()
-main = do
-  putStrLn "Running tests..."
-  putStrLn "/ success"
-  run (get' "/") site assertSuccess
-  putStrLn "/foo/bar not found"
-  run (get' "/foo/bar") site assert404
+main = runSnapTests $ do
+  tlog "Running tests..."
+  tlog "/ success"
+  tsucceeds (tget "/")
+  tlog "/foo/bar not found"
+  tnotfound (tget "/foo/bar")
+  tlog "/auth/new_user success"
+  tsucceeds (tget "/auth/new_user")
 
-  putStrLn "/auth/new_user success"
-  run (get' "/auth/new_user") site assertSuccess
-  putStrLn "/auth/new_user creates a new account"
-  cleanup clearAccounts $
-    changes (+1) countAccounts (post' "/auth/new_user"
-                                (M.fromList [ ("new_user.name", ["Jane"])
-                                            , ("new_user.email", ["jdoe@c.com"])
-                                            , ("new_user.password", ["foobar"])]))
+  tlog "/auth/new_user creates a new account"
+  tcleanup clearAccounts $
+    tchanges (+1) countAccounts (tpost "/auth/new_user"
+                                [ ("new_user.name", "Jane")
+                                , ("new_user.email", "jdoe@c.com")
+                                , ("new_user.password", "foobar")])
 
-  putStrLn "/site/new redirect without login"
-  run (get' "/site/new") site assertRedirect
-  putStrLn "/site/new success with login"
-  run (get' "/site/new") (withUser site) assertSuccess
-  putStrLn "/site/new creates a new site"
-  cleanup clearAccounts $ cleanup clearSites $
-    changes' (withUser site) (+1) countSites
-    (post' "/site/new" (M.fromList [
-                            ("new_site.name", ["Acme"])
-                            , ("new_site.url", ["http://acme.com"])
-                            , ("new_site.start_date.year", ["2014"])
-                            , ("new_site.start_date.month", ["1"])
-                            , ("new_site.start_date.day", ["3"])
-                            , ("new_site.user_link_pattern", ["http://acme.com/user/*"])
-                            , ("new_site.issue_link_pattern", ["http://acme.com/issue/*"])
-                            ]))
+  tlog "/site/new redirect without login"
+  tredirects (tget "/site/new")
 
-  site_id <- fmap fromJust $ eval' (newSite (Site (-1) "Some Site" "http://acme.com"
-                                             (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
+  tlog "/site/new success with login"
+  tcleanup clearAccounts $ twithUser $ tsucceeds (tget "/site/new")
+
+  tlog "/site/new creates a new site"
+  tcleanup clearAccounts $ tcleanup clearSites $
+    twithUser $ tchanges (+1) countSites
+    (tpost "/site/new" [
+        ("new_site.name", "Acme")
+        , ("new_site.url", "http://acme.com")
+        , ("new_site.start_date.year", "2014")
+        , ("new_site.start_date.month", "1")
+        , ("new_site.start_date.day", "3")
+        , ("new_site.user_link_pattern", "http://acme.com/user/*")
+        , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
+        ])
+
+  site_id <- fmap fromJust $ teval (newSite (Site (-1) "Some Site" "http://acme.com"
+                                            (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
-  putStrLn "/site/:id redirect without login"
-  run (get' site_url) site assertRedirect
-  putStrLn "/site/:id success with login"
-  run (get' site_url) (withUser site) assertSuccess
-  putStrLn "/site/:id has site name in response"
-  cleanup clearAccounts $ cleanup clearSites $
-    responds (get' site_url) (withUser site) "Some Site"
+  tlog "/site/:id redirect without login"
+  tredirects (tget site_url)
+  tlog "/site/:id success with login"
+  tcleanup clearAccounts $ twithUser $ tsucceeds (tget site_url)
+  tlog "/site/:id has site name in response"
+  tcleanup clearAccounts $ tcleanup clearSites $
+    twithUser $ tresponds (tget site_url) "Some Site"
 
--- Helpers follow
-site :: AppHandler ()
-site = route routes
+-- Requests
+tget :: ByteString -> TestRequest
+tget s = (Test.get s mempty)
 
-run :: RequestBuilder IO () -> AppHandler a -> (Response -> Assertion) -> IO ()
+tpost :: ByteString -> [(ByteString, ByteString)] -> TestRequest
+tpost url params = Test.postUrlEncoded url (M.fromList $ map (\x -> (fst x, [snd x])) params)
+
+-- Assertions
+tsucceeds :: TestRequest -> SnapTesting ()
+tsucceeds req = do
+  site <- get
+  lift $ run req site Test.assertSuccess
+
+tnotfound :: TestRequest -> SnapTesting ()
+tnotfound req = do
+  site <- get
+  lift $ run req site Test.assert404
+
+tredirects :: TestRequest -> SnapTesting ()
+tredirects req = do
+  site <- get
+  lift $ run req site Test.assertRedirect
+
+tchanges :: (Show a, Eq a) => (a -> a) -> AppHandler a -> TestRequest -> SnapTesting ()
+tchanges delta measure req = do
+  site <- get
+  before <- teval measure
+  lift $ Test.runHandler (Just "test") req site app
+  after <- teval measure
+  lift $ assertEqual "Expected value to change" (delta before) after
+
+tresponds :: TestRequest -> Text -> SnapTesting ()
+tresponds req mtch = do
+  site <- get
+  lift $ run req site (Test.assertBodyContains (T.encodeUtf8 mtch))
+
+-- Authentication
+twithUser :: SnapTesting a -> SnapTesting a
+twithUser act = do
+  site <- get
+  put (withUser site)
+  res <- act
+  put site
+  return res
+
+-- Clean up
+tcleanup :: AppHandler () -> SnapTesting () -> SnapTesting ()
+tcleanup cu act = do
+  act
+  lift $ Test.runHandler (Just "test") (tget "") cu app
+  return ()
+
+-- Arbitrary code
+teval :: AppHandler a -> SnapTesting a
+teval act =
+  lift $ fmap (either (error. T.unpack) id) $ Test.evalHandler (Just "test") (tget "") act app
+
+
+run :: Test.RequestBuilder IO () -> AppHandler a -> (Response -> Assertion) -> IO ()
 run req hndlr asrt = do
-  res <- runHandler (Just "test") req hndlr app
+  res <- Test.runHandler (Just "test") req hndlr app
   case res of
     Left err -> assertFailure (show err)
     Right response -> asrt response
 
-get' = (flip get) mempty
-post' url params = postUrlEncoded url params
-
-changes :: (Show a, Eq a) => (a -> a) -> AppHandler a -> RequestBuilder IO () -> IO ()
-changes = changes' site
-
-changes' :: (Show a, Eq a) => AppHandler () -> (a -> a) -> AppHandler a
-            -> RequestBuilder IO () -> IO ()
-changes' hndlr delta measure req = do
-  before <- eval' measure
-  runHandler (Just "test") req hndlr app
-  after <- eval' measure
-  assertEqual "Expected value to change" (delta before) after
-
-eval' hndlr = fmap (either (error. T.unpack) id) $ evalHandler (Just "test") (get' "") hndlr app
-
-cleanup :: AppHandler () -> IO () -> IO ()
-cleanup cu act = bracket (return ()) (\_ -> runHandler (Just "test") (get' "") cu app) (const act)
-                 >> return ()
-
-responds :: RequestBuilder IO () -> AppHandler a -> Text -> IO ()
-responds req hndlr mtch = run req hndlr (assertBodyContains (T.encodeUtf8 mtch))
+-- App level helpers
 
 -- reasonably likely to be unique
 generateEmail :: IO Text
