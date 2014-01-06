@@ -2,27 +2,23 @@
 
 module Test.Top where
 
-import qualified Data.Map as M
-import Data.Monoid
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Data.Text (Text)
+import Control.Monad.Trans.State (get, put)
+import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as B
 import Data.ByteString (ByteString)
 import Data.Time.Calendar
 import Data.Time.Clock
-import Control.Exception (bracket)
-import Control.Monad.Trans
-import Control.Monad.Trans.State
 import System.Random (randomIO)
+
 import Snap.Core
-import Test.HUnit
-import Control.Monad.Trans
-import qualified Snap.Test as Test hiding (runHandler, evalHandler)
 import Snap.Snaplet
-import qualified Snap.Snaplet.Test as Test
 import Snap.Snaplet.Auth
+import Snap.Testing
+
 import Application
 import Site
 import Helpers.Text
@@ -30,17 +26,9 @@ import Handler.Top
 import State.Accounts
 import State.Sites
 
-type SnapTesting a = StateT (AppHandler ()) IO a
-type TestRequest = Test.RequestBuilder IO ()
-
-runSnapTests :: SnapTesting () -> IO ()
-runSnapTests = (flip evalStateT (route routes))
-
-tlog :: String -> SnapTesting ()
-tlog = lift . putStrLn
 
 main :: IO ()
-main = runSnapTests $ do
+main = runSnapTests (route routes) app $ do
   tlog "Running tests..."
   tlog "/ success"
   tsucceeds (tget "/")
@@ -85,72 +73,17 @@ main = runSnapTests $ do
     tlog "/site/:id has site name in response"
     tresponds (tget site_url) "Some Site"
 
--- Requests
-tget :: ByteString -> TestRequest
-tget s = (Test.get s mempty)
-
-tpost :: ByteString -> [(ByteString, ByteString)] -> TestRequest
-tpost url params = Test.postUrlEncoded url (M.fromList $ map (\x -> (fst x, [snd x])) params)
-
--- Assertions
-tsucceeds :: TestRequest -> SnapTesting ()
-tsucceeds req = do
-  site <- get
-  lift $ run req site Test.assertSuccess
-
-tnotfound :: TestRequest -> SnapTesting ()
-tnotfound req = do
-  site <- get
-  lift $ run req site Test.assert404
-
-tredirects :: TestRequest -> SnapTesting ()
-tredirects req = do
-  site <- get
-  lift $ run req site Test.assertRedirect
-
-tchanges :: (Show a, Eq a) => (a -> a) -> AppHandler a -> TestRequest -> SnapTesting ()
-tchanges delta measure req = do
-  site <- get
-  before <- teval measure
-  lift $ Test.runHandler (Just "test") req site app
-  after <- teval measure
-  lift $ assertEqual "Expected value to change" (delta before) after
-
-tresponds :: TestRequest -> Text -> SnapTesting ()
-tresponds req mtch = do
-  site <- get
-  lift $ run req site (Test.assertBodyContains (T.encodeUtf8 mtch))
-
--- Authentication
-twithUser :: SnapTesting a -> SnapTesting a
-twithUser act = do
-  site <- get
-  put (withUser site)
-  res <- act
-  put site
-  return res
-
--- Clean up
-tcleanup :: AppHandler () -> SnapTesting () -> SnapTesting ()
-tcleanup cu act = do
-  act
-  lift $ Test.runHandler (Just "test") (tget "") cu app
-  return ()
-
--- Arbitrary code
-teval :: AppHandler a -> SnapTesting a
-teval act =
-  lift $ fmap (either (error. T.unpack) id) $ Test.evalHandler (Just "test") (tget "") act app
-
-
-run :: Test.RequestBuilder IO () -> AppHandler a -> (Response -> Assertion) -> IO ()
-run req hndlr asrt = do
-  res <- Test.runHandler (Just "test") req hndlr app
-  case res of
-    Left err -> assertFailure (show err)
-    Right response -> asrt response
 
 -- App level helpers
+
+-- Authentication
+twithUser :: SnapTesting App a -> SnapTesting App a
+twithUser act = do
+  (site, app) <- get
+  put ((withUser site), app)
+  res <- act
+  put (site, app)
+  return res
 
 -- reasonably likely to be unique
 generateEmail :: IO Text
@@ -178,27 +111,27 @@ withUser hndlr = do
       with auth $ forceLogin au
       hndlr
 
-withAdmin :: AppHandler a -> AppHandler a
-withAdmin hndlr = do
-  em <- liftIO generateEmail
-  name <- liftIO generateName
-  res <- with auth $ createUser em "password"
-  case res of
-    Left failure ->  do
-      liftIO $ putStrLn "Could not create admin"
-      hndlr
-    Right au -> do
-      newAccount (Account (fromJust $ userId au) name True)
-      with auth $ forceLogin au
-      hndlr
+-- withAdmin :: AppHandler a -> AppHandler a
+-- withAdmin hndlr = do
+--   em <- liftIO generateEmail
+--   name <- liftIO generateName
+--   res <- with auth $ createUser em "password"
+--   case res of
+--     Left failure ->  do
+--       liftIO $ putStrLn "Could not create admin"
+--       hndlr
+--     Right au -> do
+--       newAccount (Account (fromJust $ userId au) name True)
+--       with auth $ forceLogin au
+--       hndlr
 
-withLogin :: Text -> AppHandler a -> AppHandler a
-withLogin id' hndlr = do
-  user <- with auth $ withBackend $ \r -> liftIO $ (lookupByUserId r (UserId id'))
-  case user of
-    Nothing ->  do
-      liftIO $ putStrLn "Could not find user"
-      hndlr
-    Just user' -> do
-      with auth $ forceLogin user'
-      hndlr
+-- withLogin :: Text -> AppHandler a -> AppHandler a
+-- withLogin id' hndlr = do
+--   user <- with auth $ withBackend $ \r -> liftIO $ (lookupByUserId r (UserId id'))
+--   case user of
+--     Nothing ->  do
+--       liftIO $ putStrLn "Could not find user"
+--       hndlr
+--     Just user' -> do
+--       with auth $ forceLogin user'
+--       hndlr
