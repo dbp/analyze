@@ -4,7 +4,7 @@ module Test.Top where
 
 import Data.Maybe (fromJust)
 import Data.Text (Text)
-import Control.Monad.Trans.State (get, put)
+import qualified Control.Monad.Trans.State as S (get, put)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -29,30 +29,29 @@ import State.Sites
 
 main :: IO ()
 main = runSnapTests (route routes) app $ do
-  tlog "Running tests..."
-  tlog "/ success"
-  tsucceeds (tget "/")
-  tlog "/foo/bar not found"
-  tnotfound (tget "/foo/bar")
-  tlog "/auth/new_user success"
-  tsucceeds (tget "/auth/new_user")
+  name "/ success" $
+    succeeds (get "/")
+  name "/foo/bar not found" $
+    notfound (get "/foo/bar")
+  name "/auth/new_user success" $
+    succeeds (get "/auth/new_user")
 
-  tlog "/auth/new_user creates a new account"
-  tcleanup clearAccounts $
-    tchanges (+1) countAccounts (tpost "/auth/new_user"
+  name "/auth/new_user creates a new account" $
+    cleanup clearAccounts $
+    changes (+1) countAccounts (post "/auth/new_user"
                                 [ ("new_user.name", "Jane")
                                 , ("new_user.email", "jdoe@c.com")
                                 , ("new_user.password", "foobar")])
 
-  tlog "/site/new redirect without login"
-  tredirects (tget "/site/new")
+  name "/site/new redirect without login" $
+    redirects (get "/site/new")
 
-  tcleanup clearAccounts $ twithUser $ do
-    tlog "/site/new success with login"
-    tsucceeds (tget "/site/new")
-    tlog "/site/new creates a new site"
-    tchanges (+1) countSites
-     (tpost "/site/new" [
+  cleanup clearAccounts $ withUser $ do
+    name "/new success with login" $
+      succeeds (get "/site/new")
+    name "/site/new creates a new site" $
+      changes (+1) countSites
+       (post "/site/new" [
          ("new_site.name", "Acme")
          , ("new_site.url", "http://acme.com")
          , ("new_site.start_date.year", "2014")
@@ -62,27 +61,27 @@ main = runSnapTests (route routes) app $ do
          , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
          ])
 
-  site_id <- fmap fromJust $ teval (newSite (Site (-1) "Some Site" "http://acme.com"
-                                               (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
+  site_id <- fmap fromJust $ eval (newSite (Site (-1) "Some Site" "http://acme.com"
+                                            (UTCTime (fromGregorian 2014 1 1) 0) "" ""))
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
-  tlog "/site/:id redirect without login"
-  tredirects (tget site_url)
-  tcleanup clearAccounts $ tcleanup clearSites $ twithUser $ do
-    tlog "/site/:id success with login"
-    tsucceeds (tget site_url)
-    tlog "/site/:id has site name in response"
-    tresponds (tget site_url) "Some Site"
+  name "/site/:id redirect without login" $
+    redirects (get site_url)
+  cleanup clearAccounts $ cleanup clearSites $ withUser $ do
+    name "/site/:id success with login" $
+      succeeds (get site_url)
+    name "/site/:id has site name in response" $
+      responds (get site_url) "Some Site"
 
 
 -- App level helpers
 
 -- Authentication
-twithUser :: SnapTesting App a -> SnapTesting App a
-twithUser act = do
-  (site, app) <- get
-  put ((withUser site), app)
+withUser :: SnapTesting App a -> SnapTesting App a
+withUser act = do
+  (site, app) <- S.get
+  S.put ((addRandomUser site), app)
   res <- act
-  put (site, app)
+  S.put (site, app)
   return res
 
 -- reasonably likely to be unique
@@ -96,8 +95,8 @@ generateName = do
   int <- randomIO :: IO Int
   return $ T.pack $ "Person #" ++ (show $ abs int)
 
-withUser :: AppHandler a -> AppHandler a
-withUser hndlr = do
+addRandomUser :: AppHandler a -> AppHandler a
+addRandomUser hndlr = do
   em <- liftIO generateEmail
   name <- liftIO generateName
   res <- with auth $ createUser em "password"
