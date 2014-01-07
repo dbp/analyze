@@ -28,7 +28,7 @@ import State.Sites
 
 
 main :: IO ()
-main = runSnapTests (route routes) app $ do
+main = runSnapTests [consoleReport] (route routes) app $ do
   name "/ success" $
     succeeds (get "/")
   name "/foo/bar not found" $
