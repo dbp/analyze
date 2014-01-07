@@ -3,6 +3,8 @@
 module Snap.Testing
        ( SnapTesting
        , TestRequest
+       , ReportGenerator
+       , TestResult(..)
        , runSnapTests
        , consoleReport
        , name
@@ -31,15 +33,13 @@ import           Control.Monad (liftM, zipWithM)
 import           Control.Monad.Trans
 import           Control.Monad.Trans.State (StateT, evalStateT)
 import qualified Control.Monad.Trans.State as S (get, put)
-import           Control.Monad.Trans.Writer (WriterT(..), tell, listen)
+import           Control.Monad.Trans.Writer (WriterT(..), tell)
 import           Control.Exception (SomeException, catch)
 import           Snap.Core (Response(..), getHeader)
 import           Snap.Snaplet (Handler, SnapletInit)
-import           Snap.Test (RequestBuilder, getResponseBody,
-                            assertSuccess, assert404, assertRedirect, assertBodyContains)
+import           Snap.Test (RequestBuilder, getResponseBody)
 import qualified Snap.Test as Test
 import           Snap.Snaplet.Test (runHandler, evalHandler)
-import           Test.HUnit (Assertion, assertEqual, assertFailure, assertBool)
 import           Text.Regex.Posix ((=~))
 
 -- Basic Types

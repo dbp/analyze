@@ -5,6 +5,7 @@ module Test.Top where
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.Text (Text)
+import Control.Monad (void)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -13,11 +14,13 @@ import Data.ByteString (ByteString)
 import Data.Time.Calendar
 import Data.Time.Clock
 import System.Random (randomIO)
+import System.Process (system)
 
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
 import Snap.Testing
+
 
 import Application
 import Site
@@ -26,9 +29,8 @@ import Handler.Top
 import State.Accounts
 import State.Sites
 
-
 main :: IO ()
-main = runSnapTests [consoleReport] (route routes) app $ do
+main = runSnapTests [consoleReport, desktopReport] (route routes) app $ do
   name "/ success" $
     succeeds (get "/")
   name "/foo/bar not found" $
@@ -128,6 +130,20 @@ main = runSnapTests [consoleReport] (route routes) app $ do
                                        , ("url", "/foo")
                                        , ("render", "100")])
 -- App level helpers
+desktopReport :: ReportGenerator
+desktopReport res = do
+  let (passed, total) = count res
+  case passed == total of
+    True ->
+      void $ system $ "notify-send -u low -t 1000 'All Tests Passing' 'All " ++ (show total) ++ " tests passed.'"
+    False ->
+      void $ system $ "notify-send -u normal -t 1000 'Some Tests Failing' '" ++ (show (total - passed)) ++ " out of " ++ (show total) ++ " tests failed.'"
+ where count [] = (0, 0)
+       count (ResultName _ children : xs) = count (children ++ xs)
+       count (ResultPass _ : xs) = let (p, t) = count xs
+                                   in (1 + p, 1 + t)
+       count (ResultFail _ : xs) = let (p, t) = count xs
+                                   in (p, 1 + t)
 
 -- Authentication
 withUser :: SnapTesting App a -> SnapTesting App a
