@@ -35,32 +35,33 @@ main = runSnapTests [consoleReport, desktopReport] (route routes) app $ do
     succeeds (get "/")
   name "/foo/bar not found" $
     notfound (get "/foo/bar")
-  name "/auth/new_user success" $
-    succeeds (get "/auth/new_user")
+  name "/auth/new_user" $ do
+    name "success" $
+      succeeds (get "/auth/new_user")
+    name "creates a new account" $
+      cleanup clearAccounts $
+      changes (+1) countAccounts (post "/auth/new_user" $ params
+                                  [ ("new_user.name", "Jane")
+                                  , ("new_user.email", "jdoe@c.com")
+                                  , ("new_user.password", "foobar")])
 
-  name "/auth/new_user creates a new account" $
-    cleanup clearAccounts $
-    changes (+1) countAccounts (post "/auth/new_user" $ params
-                                [ ("new_user.name", "Jane")
-                                , ("new_user.email", "jdoe@c.com")
-                                , ("new_user.password", "foobar")])
-
-  name "/site/new redirect without login" $
-    redirects (get "/site/new")
-  cleanup clearAccounts $ withUser $ do
-    name "/new success with login" $
-      succeeds (get "/site/new")
-    name "/site/new creates a new site" $
-      changes (+1) countSites
-       (post "/site/new" $ params [
-         ("new_site.name", "Acme")
-         , ("new_site.url", "http://acme.com")
-         , ("new_site.start_date.year", "2014")
-         , ("new_site.start_date.month", "1")
-         , ("new_site.start_date.day", "3")
-         , ("new_site.user_link_pattern", "http://acme.com/user/*")
-         , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
-         ])
+  name "/site/new" $ do
+    name "redirect without login" $
+      redirects (get "/site/new")
+    cleanup clearAccounts $ withUser $ do
+      name "success with login" $
+        succeeds (get "/site/new")
+      name "creates a new site" $
+        changes (+1) countSites
+         (post "/site/new" $ params [
+           ("new_site.name", "Acme")
+           , ("new_site.url", "http://acme.com")
+           , ("new_site.start_date.year", "2014")
+           , ("new_site.start_date.month", "1")
+           , ("new_site.start_date.day", "3")
+           , ("new_site.user_link_pattern", "http://acme.com/user/*")
+           , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
+           ])
 
   let site' = (Site (-1) "Some Site" "http://acme.com"
                                             (UTCTime (fromGregorian 2014 1 1) 0)
@@ -80,64 +81,71 @@ main = runSnapTests [consoleReport, desktopReport] (route routes) app $ do
                            , ("edit_site.issue_link_pattern", "http://acme.com/issue/*")
                            ]
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
-  name "/site/:id redirect without login" $
-    redirects (get site_url)
-  withUser $ do
-    name "/site/:id redirects without right user" $
+  token <- fmap fromJust $ eval (newToken site)
+  cleanup clearAccounts $ cleanup clearSites $ name "/site/:id" $ do
+    name "redirect without login" $
       redirects (get site_url)
-    name "/site/:id/edit redirects without right user" $
-      redirects (get $ B.append site_url "/edit")
+    withUser $ do
+      name "redirects without right user" $
+        redirects (get site_url)
+      name "/edit redirects without right user" $
+        redirects (get $ B.append site_url "/edit")
 
-  cleanup clearAccounts $ cleanup clearSites $ loginAs user $ do
-    name "/site/:id success with right login" $
-      succeeds (get site_url)
-    name "/site/:id has site name in response" $
-      contains (get site_url) "Some Site"
-    name "/site/:id/edit displays a page with a form on it" $
-      contains (get $ B.append site_url "/edit") "<form"
-    name "/site/:id/edit post changes url" $
-      changes (const "http://newacme.com")
-        (fmap (siteUrl.fromJust) $ getSite site_id)
-        (post (B.append site_url "/edit") $ M.union (params [("edit_site.url", "http://newacme.com")])
-                                                    site_params)
-    name "/site/:id/edit redirects" $
-      redirects (post (B.append site_url "/edit") site_params)
 
-    token <- fmap fromJust $ eval (newToken site)
-    name "/site/:id shows any tokens" $
-      contains (get site_url) (tokenText token)
-    eval (invalidateToken token)
-    name "/site/:id should not show invalidated tokens" $
-      notcontains (get site_url) (tokenText token)
-    let new_token_link = B.append site_url "/token/new"
-    name "/site/:id should have a link to create a new token" $
-      contains (get site_url) (T.decodeUtf8 new_token_link)
+    loginAs user $ do
+      name "success with right login" $
+        succeeds (get site_url)
+      name "has site name in response" $
+        contains (get site_url) "Some Site"
+      name "/edit displays a page with a form on it" $
+        contains (get $ B.append site_url "/edit") "<form"
+      name "/edit post changes url" $
+        changes (const "http://newacme.com")
+          (fmap (siteUrl.fromJust) $ getSite site_id)
+          (post (B.append site_url "/edit") $ M.union (params [("edit_site.url", "http://newacme.com")])
+                                                      site_params)
+      name "/edit redirects" $
+        redirects (post (B.append site_url "/edit") site_params)
 
-    name "/site/:id/token/new should create a new token for site" $
-      changes (+1) (fmap length (getTokens site)) (get new_token_link)
+      name " shows any tokens" $
+        contains (get site_url) (tokenText token)
+      eval (invalidateToken token)
+      name " should not show invalidated tokens" $
+        notcontains (get site_url) (tokenText token)
+      let new_token_link = B.append site_url "/token/new"
+      name " should have a link to create a new token" $
+        contains (get site_url) (T.decodeUtf8 new_token_link)
 
-    name "/submit/visit should 404 without token" $
-      notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100")])
-    name "/submit/visit should 404 without url" $
-      notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                              , ("render", "100")])
-    name "/submit/visit should 404 without render" $
-      notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                              , ("url", "/foo")])
-    name "/submit/visit should create a new entry in visits_queue" $
-      changes (+1) (fmap length (siteVisitsQueue site))
-        (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                       , ("url", "/foo")
-                                       , ("render", "100")])
+      name "/token/new should create a new token for site" $
+        changes (+1) (fmap length (getTokens site)) (get new_token_link)
+
+    cleanup clearVisitsQueue $ name "/submit/visit" $ do
+      name "should 404 without token" $
+        notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100")])
+      name "should 404 without url" $
+        notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                                , ("render", "100")])
+      name "should 404 without render" $
+        notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                                , ("url", "/foo")])
+      name "should 404 with invalid token" $
+        notfound (post "/submit/visit" $ params [("token", "BLAH")
+                                                , ("url", "/foo")
+                                                , ("render", "100")])
+      name "should create a new entry in visits_queue" $
+        changes (+1) (fmap length (siteVisitsQueue site))
+          (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                         , ("url", "/foo")
+                                         , ("render", "100")])
 -- App level helpers
 desktopReport :: ReportGenerator
 desktopReport res = do
   let (passed, total) = count res
   case passed == total of
     True ->
-      void $ system $ "notify-send -u low -t 1000 'All Tests Passing' 'All " ++ (show total) ++ " tests passed.'"
+      void $ system $ "notify-send -u low -t 2000 'All Tests Passing' 'All " ++ (show total) ++ " tests passed.'"
     False ->
-      void $ system $ "notify-send -u normal -t 1000 'Some Tests Failing' '" ++ (show (total - passed)) ++ " out of " ++ (show total) ++ " tests failed.'"
+      void $ system $ "notify-send -u normal -t 2000 'Some Tests Failing' '" ++ (show (total - passed)) ++ " out of " ++ (show total) ++ " tests failed.'"
  where count [] = (0, 0)
        count (ResultName _ children : xs) = count (children ++ xs)
        count (ResultPass _ : xs) = let (p, t) = count xs

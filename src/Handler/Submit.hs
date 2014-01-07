@@ -30,9 +30,8 @@ import           Helpers.Errors
 import           Helpers.Text
 import           Helpers.Forms
 import           Helpers.Auth
+import           Helpers.Misc
 import           State.Sites
-import           State.Accounts
-import           Splices.Sites
 
 submitRoutes :: AppHandler ()
 submitRoutes  = route
@@ -40,4 +39,16 @@ submitRoutes  = route
                 ]
 
 visitHandler :: AppHandler ()
-visitHandler = undefined
+visitHandler = do
+  mt <- getParam "token"
+  mu <- getParam "url"
+  mr <- getParam "render"
+  case (,,) <$> mt <*> mu <*> ((fmap B8.unpack mr) >>= readSafe) of
+    Nothing -> pass
+    Just (t, u, r) -> do
+      mtoken <- getToken (T.decodeUtf8 t)
+      case mtoken of
+        Nothing -> pass
+        Just token -> do
+          newSiteVisit (SiteVisit (-1) (tokenSiteId token) (T.decodeUtf8 u) r (UTCTime (fromGregorian 0 0 0) 0))
+          return ()

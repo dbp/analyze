@@ -75,7 +75,7 @@ consoleReport = cg 0
           cg (indent + 2) children
           cg indent xs
         cg indent (ResultPass n : xs) = do
-          fmt indent (T.append "PASSED: " n)
+          fmt indent (T.append "PASSED " n)
           cg indent xs
         cg indent (ResultFail n : xs) = do
           fmt indent (T.append "FAILED: " n)
@@ -171,10 +171,10 @@ run req asrt = do
 -- Low level matchers - these parallel HUnit assertions in Snap.Test
 
 testEqual :: (Eq a, Show a) => Text -> a -> a -> SnapTesting b TestLog
-testEqual msg a b = return $ (if a == b then TestPass else TestFail) msg
+testEqual msg a b = return $ if a == b then TestPass "" else TestFail msg
 
 testBool :: Text -> Bool -> SnapTesting b TestLog
-testBool msg b = return $ (if b then TestPass else TestFail) msg
+testBool msg b = return $ if b then TestPass "" else TestFail msg
 
 testSuccess :: Response -> SnapTesting b TestLog
 testSuccess rsp = testEqual message 200 status
@@ -212,7 +212,7 @@ containsGen :: (Bool -> Bool) -> Text -> ByteString -> Response -> SnapTesting b
 containsGen b message match rsp =
   do
     body <- liftIO $ getResponseBody rsp
-    return $ (if (b (body =~ match)) then TestPass else TestFail) message
+    return $ if (b (body =~ match)) then TestPass "" else TestFail message
   where
     message = pack $ "Expected body to not match regexp \"" ++ show match
               ++ "\", but did"

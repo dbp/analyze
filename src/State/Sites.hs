@@ -5,6 +5,7 @@ module State.Sites where
 import           Control.Applicative
 import           Control.Monad.Trans (liftIO)
 import           Data.Text (Text)
+import           Data.Maybe (isNothing)
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth (AuthUser(..), UserId(..))
 import           Data.Time.Clock
@@ -35,7 +36,7 @@ data SiteToken = SiteToken { tokenText :: Text
 instance FromRow SiteToken where
   fromRow = SiteToken <$> field <*> field <*> field <*> field
 
-data SiteVisit = SiteVisit { visitId :: Text
+data SiteVisit = SiteVisit { visitId :: Int
                            , visitSiteId :: Int
                            , visitUrl :: Text
                            , visitRenderTime :: Double
@@ -52,11 +53,9 @@ countSites = numberQuery' "select count(*) from sites"
 
 newSite :: Site -> AppHandler (Maybe Int)
 newSite (Site _ n u s ulp ilp) = do
-  res <- query "insert into sites (name, url, start_date, user_link_pattern, issue_link_pattern) values (?,?,?,?,?) returning id" (n, u, s, ulp, ilp) :: AppHandler [[Int]]
-  case res of
-    ((x:_):_)-> return (Just x)
-    _ -> registerError "newSite: Could not create new site." (Just u) >> return Nothing
-
+  r <- idQuery "insert into sites (name, url, start_date, user_link_pattern, issue_link_pattern) values (?,?,?,?,?) returning id" (n, u, s, ulp, ilp)
+  if isNothing r then registerError "newSite: Could not create new site." (Just u) else return ()
+  return r
 
 getSite :: Int -> AppHandler (Maybe Site)
 getSite id' = singleQuery "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites where id = ?" (Only id')
@@ -83,8 +82,20 @@ newToken site = do
 getTokens :: Site -> AppHandler [SiteToken]
 getTokens site = query "select token, invalidated, created, site_id from tokens where site_id = ?" (Only $ siteId site)
 
+getToken :: Text -> AppHandler (Maybe SiteToken)
+getToken t = singleQuery "select token, invalidated, created, site_id from tokens where token = ?" (Only t)
+
 invalidateToken :: SiteToken -> AppHandler ()
 invalidateToken token = void $ execute "update tokens set invalidated = now() where token = ? and site_id = ?" (tokenText token, tokenSiteId token)
 
+clearVisitsQueue :: AppHandler ()
+clearVisitsQueue = void $ execute_ "delete from visits_queue"
+
 siteVisitsQueue :: Site -> AppHandler [SiteVisit]
 siteVisitsQueue site = query "select id, site_id, url, render_time, time from visits_queue where site_id = ?" (Only $ siteId site)
+
+newSiteVisit :: SiteVisit -> AppHandler (Maybe Int)
+newSiteVisit (SiteVisit _ s u r _) = do
+  r <- idQuery "insert into visits_queue (site_id, url, render_time) values (?,?,?) returning id" (s, u, r)
+  if isNothing r then registerError "newSiteVisit: Could not create new site visit." (Just $ tshow (s, u)) else return ()
+  return r
