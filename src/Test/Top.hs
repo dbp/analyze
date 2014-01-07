@@ -114,8 +114,19 @@ main = runSnapTests (route routes) app $ do
     name "/site/:id/token/new should create a new token for site" $
       changes (+1) (fmap length (getTokens site)) (get new_token_link)
 
-
-
+    name "/submit/visit should 404 without token" $
+      notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100")])
+    name "/submit/visit should 404 without url" $
+      notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                              , ("render", "100")])
+    name "/submit/visit should 404 without render" $
+      notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                              , ("url", "/foo")])
+    name "/submit/visit should create a new entry in visits_queue" $
+      changes (+1) (fmap length (siteVisitsQueue site))
+        (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                       , ("url", "/foo")
+                                       , ("render", "100")])
 -- App level helpers
 
 -- Authentication

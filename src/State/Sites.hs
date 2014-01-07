@@ -35,6 +35,15 @@ data SiteToken = SiteToken { tokenText :: Text
 instance FromRow SiteToken where
   fromRow = SiteToken <$> field <*> field <*> field <*> field
 
+data SiteVisit = SiteVisit { visitId :: Text
+                           , visitSiteId :: Int
+                           , visitUrl :: Text
+                           , visitRenderTime :: Double
+                           , visitTime :: UTCTime
+                           }
+instance FromRow SiteVisit where
+  fromRow = SiteVisit <$> field <*> field <*> field <*> field <*> field
+
 clearSites :: AppHandler ()
 clearSites = void $ execute_ "delete from sites"
 
@@ -76,3 +85,6 @@ getTokens site = query "select token, invalidated, created, site_id from tokens 
 
 invalidateToken :: SiteToken -> AppHandler ()
 invalidateToken token = void $ execute "update tokens set invalidated = now() where token = ? and site_id = ?" (tokenText token, tokenSiteId token)
+
+siteVisitsQueue :: Site -> AppHandler [SiteVisit]
+siteVisitsQueue site = query "select id, site_id, url, render_time, time from visits_queue where site_id = ?" (Only $ siteId site)

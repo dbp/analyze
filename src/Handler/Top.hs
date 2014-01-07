@@ -11,6 +11,7 @@ import           Snap.Core
 import           Application
 import           Handler.Auth (authRoutes)
 import           Handler.Sites (sitesRoutes)
+import           Handler.Submit (submitRoutes)
 import           Helpers.Auth (withAccount)
 
 ------------------------------------------------------------------------------
@@ -19,6 +20,7 @@ routes :: [(ByteString, AppHandler ())]
 routes = [ ("", ifTop $ indexHandler)
          , ("/site", withAccount sitesRoutes)
          , ("/auth", authRoutes)
+         , ("/submit", submitRoutes)
          , ("", notFoundHandler)
          ]
 
