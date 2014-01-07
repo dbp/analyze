@@ -12,27 +12,29 @@ module Snap.Testing
        , notfound
        , redirects
        , changes
-       , responds
+       , contains
+       , notcontains
        , cleanup
        , eval
        , modifySite
        ) where
 
-import Data.Map (Map, fromList)
-import Data.ByteString (ByteString)
-import Data.Text (Text, unpack)
-import Data.Text.Encoding (encodeUtf8)
-import Data.Monoid (mempty)
-import Control.Monad.Trans
-import Control.Monad.Trans.State (StateT, evalStateT)
+import           Data.Map (Map, fromList)
+import           Data.ByteString (ByteString)
+import           Data.Text (Text, unpack)
+import           Data.Text.Encoding (encodeUtf8)
+import           Data.Monoid (mempty)
+import           Control.Monad.Trans
+import           Control.Monad.Trans.State (StateT, evalStateT)
 import qualified Control.Monad.Trans.State as S (get, put)
-import Snap.Core (Response)
-import Snap.Snaplet (Handler, SnapletInit)
-import Snap.Test (RequestBuilder,
-                  assertSuccess, assert404, assertRedirect, assertBodyContains)
+import           Snap.Core (Response)
+import           Snap.Snaplet (Handler, SnapletInit)
+import           Snap.Test (RequestBuilder, getResponseBody,
+                            assertSuccess, assert404, assertRedirect, assertBodyContains)
 import qualified Snap.Test as Test
-import Snap.Snaplet.Test (runHandler, evalHandler)
-import Test.HUnit (Assertion, assertEqual, assertFailure)
+import           Snap.Snaplet.Test (runHandler, evalHandler)
+import           Test.HUnit (Assertion, assertEqual, assertFailure, assertBool)
+import           Text.Regex.Posix ((=~))
 
 -- Basic Types
 type SnapTesting b a = StateT (Handler b b (), SnapletInit b b) IO a
@@ -75,8 +77,11 @@ changes delta measure req = do
   after <- eval measure
   lift $ assertEqual "Expected value to change" (delta before) after
 
-responds :: TestRequest -> Text -> SnapTesting b ()
-responds req mtch = run req (assertBodyContains (encodeUtf8 mtch))
+contains :: TestRequest -> Text -> SnapTesting b ()
+contains req mtch = run req (assertBodyContains (encodeUtf8 mtch))
+
+notcontains :: TestRequest -> Text -> SnapTesting b ()
+notcontains req mtch = run req (assertBodyNotContains (encodeUtf8 mtch))
 
 -- Clean up
 cleanup :: Handler b b () -> SnapTesting b () -> SnapTesting b ()
@@ -110,3 +115,14 @@ run req asrt = do
   case res of
     Left err -> lift $ assertFailure (show err)
     Right response -> lift $ asrt response
+
+-- a complement of assertBodyContains, copied and modified from Snap.Test
+assertBodyNotContains :: ByteString  -- ^ Regexp that will match the body content
+                      -> Response
+                      -> Assertion
+assertBodyNotContains match rsp = do
+    body <- getResponseBody rsp
+    assertBool message (not $ body =~ match)
+  where
+    message = "Expected body to not match regexp \"" ++ show match
+              ++ "\", but did"

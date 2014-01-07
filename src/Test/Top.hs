@@ -60,13 +60,14 @@ main = runSnapTests (route routes) app $ do
          , ("new_site.issue_link_pattern", "http://acme.com/issue/*")
          ])
 
-  let site = (Site (-1) "Some Site" "http://acme.com"
+  let site' = (Site (-1) "Some Site" "http://acme.com"
                                             (UTCTime (fromGregorian 2014 1 1) 0)
                                             "http://acme.com/user/*"
                                             "http://acme.com/issue/*")
-  site_id <- fmap fromJust $ eval (newSite site)
+  site_id <- fmap fromJust $ eval (newSite site')
+  let site = site' { siteId = site_id }
   (account, user) <- fmap fromJust $ eval getRandomUser
-  eval (addSiteUser (site { siteId = site_id }) account)
+  eval (addSiteUser site account)
   -- for use in forms
   let site_params = params [ ("edit_site.name", "Some Site")
                            , ("edit_site.url", "http://acme.com")
@@ -79,15 +80,19 @@ main = runSnapTests (route routes) app $ do
   let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
   name "/site/:id redirect without login" $
     redirects (get site_url)
-  name "/site/:id redirects without right user" $
-    withUser $ redirects (get site_url)
+  withUser $ do
+    name "/site/:id redirects without right user" $
+      redirects (get site_url)
+    name "/site/:id/edit redirects without right user" $
+      redirects (get $ B.append site_url "/edit")
+
   cleanup clearAccounts $ cleanup clearSites $ loginAs user $ do
     name "/site/:id success with right login" $
       succeeds (get site_url)
     name "/site/:id has site name in response" $
-      responds (get site_url) "Some Site"
+      contains (get site_url) "Some Site"
     name "/site/:id/edit displays a page with a form on it" $
-      responds (get $ B.append site_url "/edit") "<form"
+      contains (get $ B.append site_url "/edit") "<form"
     name "/site/:id/edit post changes url" $
       changes (const "http://newacme.com")
         (fmap (siteUrl.fromJust) $ getSite site_id)
@@ -95,6 +100,20 @@ main = runSnapTests (route routes) app $ do
                                                     site_params)
     name "/site/:id/edit redirects" $
       redirects (post (B.append site_url "/edit") site_params)
+
+    token <- fmap fromJust $ eval (newToken site)
+    name "/site/:id shows any tokens" $
+      contains (get site_url) (tokenText token)
+    eval (invalidateToken token)
+    name "/site/:id should not show invalidated tokens" $
+      notcontains (get site_url) (tokenText token)
+    let new_token_link = B.append site_url "/token/new"
+    name "/site/:id should have a link to create a new token" $
+      contains (get site_url) (T.decodeUtf8 new_token_link)
+
+    name "/site/:id/token/new should create a new token for site" $
+      changes (+1) (fmap length (getTokens site)) (get new_token_link)
+
 
 
 -- App level helpers

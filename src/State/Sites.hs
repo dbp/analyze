@@ -3,6 +3,7 @@
 module State.Sites where
 
 import           Control.Applicative
+import           Control.Monad.Trans (liftIO)
 import           Data.Text (Text)
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth (AuthUser(..), UserId(..))
@@ -25,6 +26,14 @@ data Site = Site { siteId :: Int
 instance FromRow Site where
   fromRow = Site <$> field <*> field <*> field
                  <*> field <*> field <*> field
+
+data SiteToken = SiteToken { tokenText :: Text
+                           , tokenInvalidated :: Maybe UTCTime
+                           , tokenCreated :: UTCTime
+                           , tokenSiteId :: Int
+                           }
+instance FromRow SiteToken where
+  fromRow = SiteToken <$> field <*> field <*> field <*> field
 
 clearSites :: AppHandler ()
 clearSites = void $ execute_ "delete from sites"
@@ -53,3 +62,17 @@ addSiteUser site account =
 isSiteUser :: Site -> Account -> AppHandler Bool
 isSiteUser site account = do
   fmap (/= 0) $ numberQuery "select count(*) from site_users where site_id = ? and user_id = ?" (siteId site, accountId account)
+
+newToken :: Site -> AppHandler (Maybe SiteToken)
+newToken site = do
+  now <- liftIO getCurrentTime
+  res <- query "insert into tokens (site_id, created) values (?, ?) returning token" ((siteId site), now)
+  case res of
+    [[t]] -> return (Just $ SiteToken t Nothing now (siteId site))
+    _ -> return Nothing
+
+getTokens :: Site -> AppHandler [SiteToken]
+getTokens site = query "select token, invalidated, created, site_id from tokens where site_id = ?" (Only $ siteId site)
+
+invalidateToken :: SiteToken -> AppHandler ()
+invalidateToken token = void $ execute "update tokens set invalidated = now() where token = ? and site_id = ?" (tokenText token, tokenSiteId token)

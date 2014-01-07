@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-07 02:42:42.94884 UTC
+Depends: 2014-01-02-base-schema
+Apply:
+  ALTER TABLE tokens ALTER COLUMN created SET DEFAULT now();
+  ALTER TABLE tokens ALTER COLUMN created SET NOT NULL;
+
+Revert:
+  ALTER TABLE tokens ALTER COLUMN created DROP NOT NULL;
+  ALTER TABLE tokens ALTER COLUMN created DROP DEFAULT;

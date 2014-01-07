@@ -80,10 +80,13 @@ siteHandler account = do
             True ->
               route [ ("", ifTop $ showSiteHandler account site)
                     , ("/edit", editSiteHandler account site)
+                    , ("/token/new", newTokenHandler account site)
                     ]
 
 showSiteHandler :: Account -> Site -> AppHandler ()
-showSiteHandler account site = renderWithSplices "sites/show" (siteSplice site)
+showSiteHandler account site = do
+  tokens <- getTokens site
+  renderWithSplices "sites/show" (siteSplice site <> ("tokens" ## tokensSplice tokens))
 
 editSiteHandler :: Account -> Site -> AppHandler ()
 editSiteHandler account site = do
@@ -94,3 +97,8 @@ editSiteHandler account site = do
       updateSite (site { siteName = name, siteUrl = url, siteStartDate = (UTCTime start_date 0)
                        , siteUserLinkPattern = user_pattern, siteIssueLinkPattern = issue_pattern })
       redirect $ sitePath (siteId site)
+
+newTokenHandler :: Account -> Site -> AppHandler ()
+newTokenHandler account site = do
+  newToken site
+  redirect $ sitePath (siteId site)
