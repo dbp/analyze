@@ -141,6 +141,12 @@ main = do
           (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
                                          , ("url", "/foo")
                                          , ("render", "100")])
+      name "processVisits should result in a day visit, and empty queue" $
+        changes' (\(a,b) -> (a - 1, b + 1)) ((\a b -> (length a, length b))
+                                             <$> (siteVisitsQueue site)
+                                             <*> (siteDayVisits site))
+          (eval $ do vis <- getMarkVisits 1
+                     processVisits vis)
     name "/submit/error" $ do
       name "should 404 without token" $
         notfound (post "/submit/error" $ params [("url", "/foo"), ("message", "Maybe.fromJust")])
