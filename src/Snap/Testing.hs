@@ -15,6 +15,7 @@ module Snap.Testing
        , redirects
        , redirectsto
        , changes
+       , changes'
        , contains
        , notcontains
        , cleanup
@@ -117,8 +118,12 @@ redirectsto req uri = run req (testRedirectTo $ encodeUtf8 uri)
 changes :: (Show a, Eq a) => (a -> a) -> Handler b b a -> TestRequest -> SnapTesting b ()
 changes delta measure req = do
   (site, app) <- lift S.get
+  changes' delta measure (liftIO $ runHandlerSafe req site app)
+
+changes' :: (Show a, Eq a) => (a -> a) -> Handler b b a -> SnapTesting b c -> SnapTesting b ()
+changes' delta measure act = do
   before <- eval measure
-  _ <- liftIO $ runHandlerSafe req site app
+  _ <- act
   after <- eval measure
   res <- testEqual "Expected value to change" (delta before) after
   tell [res]

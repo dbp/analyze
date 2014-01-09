@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-09 17:03:44.453603 UTC
+Depends: 2014-01-02-base-schema
+Apply:
+  ALTER TABLE visits_queue ADD COLUMN processing bool not null default false;
+  ALTER TABLE errors_queue ADD COLUMN processing bool not null default false;
+
+Revert:
+  ALTER TABLE visits_queue DROP COLUMN processing;
+  ALTER TABLE errors_queue DROP COLUMN processing;

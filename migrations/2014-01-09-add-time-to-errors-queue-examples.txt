@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-09 21:15:24.569641 UTC
+Depends: 2014-01-09-add-processing-to-queues 2014-01-02-base-schema
+Apply:
+  ALTER TABLE errors_queue ADD COLUMN time timestamptz NOT NULL DEFAULT now();
+  ALTER TABLE errors_examples ADD COLUMN time timestamptz NOT NULL DEFAULT now();
+
+Revert:
+  ALTER TABLE errors_queue DROP COLUMN time;
+  ALTER TABLE errors_examples DROP COLUMN time;

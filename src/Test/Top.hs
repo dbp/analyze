@@ -5,6 +5,7 @@ module Test.Top where
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.Text (Text)
+import Control.Applicative
 import Control.Monad (void)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
@@ -27,7 +28,7 @@ import Helpers.Text
 import Handler.Top
 import State.Accounts
 import State.Sites
-import Worker (varianceProp)
+import Worker hiding (main)
 
 main :: IO ()
 main = do
@@ -122,7 +123,7 @@ main = do
       name "/token/new should create a new token for site" $
         changes (+1) (fmap length (getTokens site)) (get new_token_link)
 
-    cleanup clearVisitsQueue $ name "/submit/visit" $ do
+    name "/submit/visit" $ do
       name "should 404 without token" $
         notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100")])
       name "should 404 without url" $
@@ -140,7 +141,7 @@ main = do
           (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
                                          , ("url", "/foo")
                                          , ("render", "100")])
-    cleanup clearErrorsQueue $ name "/submit/error" $ do
+    name "/submit/error" $ do
       name "should 404 without token" $
         notfound (post "/submit/error" $ params [("url", "/foo"), ("message", "Maybe.fromJust")])
       name "should 404 without url" $
@@ -157,6 +158,14 @@ main = do
                                          , ("url", "/foo")
                                          , ("message", "Maybe.fromJust: Nothing")
                                          , ("uid", "1")])
+      name "processErrors should result in a new error, and empty queue" $
+        changes' (\(a,b,c) -> (a - 1, b + 1, c + 1)) ((\a b c -> (length a, length b, c))
+                                                      <$> (siteErrorsQueue site)
+                                                      <*> (siteErrors site)
+                                                      <*> countErrorExamples)
+          (eval $ do errs <- getMarkErrors 1
+                     processErrors errs)
+
 
 
 -- App level helpers

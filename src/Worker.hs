@@ -8,9 +8,8 @@ import Control.Monad (void)
 import Control.Monad.Trans (liftIO)
 import Control.Concurrent (threadDelay)
 import Data.Time.Clock (UTCTime(..))
+import Data.Time.Calendar (fromGregorian)
 import Data.List (partition)
-
-import Debug.Trace
 
 import Snap.Test (get)
 import Snap.Snaplet.Test (evalHandler)
@@ -18,8 +17,7 @@ import Snap.Snaplet.Test (evalHandler)
 import Application
 import Site (app)
 
-import State.Sites (SiteVisit(..), DayVisit(..), getVisits,
-                    getDayVisit, newDayVisit, updateDayVisit)
+import State.Sites
 
 main :: IO ()
 main = do
@@ -30,8 +28,10 @@ main = do
 
 process :: AppHandler ()
 process = do
-  visits <- getVisits 1000
+  visits <- getMarkVisits 1000
   processVisits visits
+  errors <- getMarkErrors 1000
+  processErrors errors
   liftIO $ threadDelay 1000000
   process
 
@@ -47,7 +47,6 @@ processVisits (v:vs) = do
     Nothing -> do
       newDayVisit (DayVisit day (visitSiteId v) (Just url) (length times) (maximum times)
                    (minimum times) (average times) (variance times))
-      processVisits rest
     Just dv -> do -- calculate variance and average
        let n = dayHits dv + length dvs
        updateDayVisit $ dv { dayHits = n, dayMaxTime = max (dayMaxTime dv) (maximum times)
@@ -57,7 +56,25 @@ processVisits (v:vs) = do
                                                          (dayAvgTime dv)
                                                          (dayHits dv)
                                                          times}
-       processVisits rest
+
+  deleteVisitQueueItem (visitId v)
+  processVisits rest
+
+processErrors :: [SiteError] -> AppHandler ()
+processErrors [] = return ()
+processErrors ((SiteError i si url msg uid tm):es) = do
+  me <- getErrorByMessage msg si
+  case me of
+    Nothing -> do
+      mei <- newErrorSummary (ErrorSummary (-1) si msg Nothing (UTCTime (fromGregorian 0 0 0) 0) Nothing)
+      case mei of
+        Nothing -> return ()
+        Just ei ->
+          void $ newErrorExample (ErrorExample (-1) ei url tm uid)
+    Just e ->
+      void $ newErrorExample (ErrorExample (-1) (errorId e) url tm uid)
+  deleteErrorQueueItem i
+  processErrors es
 
 
 average :: [Double] -> Double
