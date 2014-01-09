@@ -21,16 +21,19 @@ import Snap.Snaplet
 import Snap.Snaplet.Auth
 import Snap.Testing
 
-
 import Application
 import Site
 import Helpers.Text
 import Handler.Top
 import State.Accounts
 import State.Sites
+import Worker (varianceProp)
 
 main :: IO ()
-main = runSnapTests [consoleReport, desktopReport] (route routes) app $ do
+main = do
+  runSnapTests [consoleReport, desktopReport] (route routes) app $ do
+  name "online variance" $
+    quickCheck varianceProp
   name "/ success" $
     succeeds (get "/")
   name "/foo/bar not found" $
@@ -137,8 +140,10 @@ main = runSnapTests [consoleReport, desktopReport] (route routes) app $ do
           (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
                                          , ("url", "/foo")
                                          , ("render", "100")])
+
+
 -- App level helpers
-desktopReport :: ReportGenerator
+desktopReport :: [TestResult] -> IO ()
 desktopReport res = do
   let (passed, total) = count res
   case passed == total of

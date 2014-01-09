@@ -3,7 +3,6 @@
 module Snap.Testing
        ( SnapTesting
        , TestRequest
-       , ReportGenerator
        , TestResult(..)
        , runSnapTests
        , consoleReport
@@ -14,12 +13,14 @@ module Snap.Testing
        , succeeds
        , notfound
        , redirects
+       , redirectsto
        , changes
        , contains
        , notcontains
        , cleanup
        , eval
        , modifySite
+       , quickCheck
        ) where
 
 import           Data.Map (Map, fromList)
@@ -41,16 +42,17 @@ import           Snap.Test (RequestBuilder, getResponseBody)
 import qualified Snap.Test as Test
 import           Snap.Snaplet.Test (runHandler, evalHandler)
 import           Text.Regex.Posix ((=~))
+import           Test.QuickCheck (Args(..), Result(..), Testable, quickCheckWithResult, stdArgs)
 
 -- Basic Types
 type SnapTesting b a = WriterT [TestLog] (StateT (Handler b b (), SnapletInit b b) IO) a
 type TestRequest = RequestBuilder IO ()
-type ReportGenerator = [TestResult] -> IO ()
 data TestResult = ResultName Text [TestResult] | ResultPass Text | ResultFail Text
 -- TestLog is the flat datastructure that will be turned into the TestResult tree
 data TestLog = NameStart Text | NameEnd | TestPass Text | TestFail Text deriving Show
 
-runSnapTests :: [ReportGenerator] -> Handler b b () -> SnapletInit b b -> SnapTesting b () -> IO ()
+-- Top level runner
+runSnapTests :: [[TestResult] -> IO ()] -> Handler b b () -> SnapletInit b b -> SnapTesting b () -> IO ()
 runSnapTests rgs site app tests = do
   testlog <- liftM snd $ evalStateT (runWriterT tests) (site, app)
   let res = fst $ buildResult [] testlog
@@ -67,7 +69,7 @@ buildResult acc ((TestPass desc):xs) = buildResult (acc ++ [ResultPass desc]) xs
 buildResult acc ((TestFail desc):xs) = buildResult (acc ++ [ResultFail desc]) xs
 
 -- Report generators
-consoleReport :: ReportGenerator
+consoleReport :: [TestResult] -> IO ()
 consoleReport = cg 0
   where cg _ [] = return ()
         cg indent (ResultName n children : xs) = do
@@ -109,6 +111,9 @@ notfound req = run req test404
 redirects :: TestRequest -> SnapTesting b ()
 redirects req = run req testRedirect
 
+redirectsto :: TestRequest -> Text -> SnapTesting b ()
+redirectsto req uri = run req (testRedirectTo $ encodeUtf8 uri)
+
 changes :: (Show a, Eq a) => (a -> a) -> Handler b b a -> TestRequest -> SnapTesting b ()
 changes delta measure req = do
   (site, app) <- lift S.get
@@ -147,6 +152,15 @@ modifySite f act = do
   res <- act
   lift $ S.put (site, app)
   return res
+
+quickCheck :: Testable prop => prop -> SnapTesting b ()
+quickCheck p = do
+  res <- liftIO $ quickCheckWithResult (stdArgs { chatty = False }) p
+  case res of
+    Success{} -> tell [TestPass ""]
+    GaveUp{} -> tell [TestPass ""]
+    Failure{} -> tell [TestFail ""]
+    NoExpectedFailure{} -> tell [TestFail ""]
 
 -- Private helpers
 runHandlerSafe :: TestRequest -> Handler b b v -> SnapletInit b b -> IO (Either Text Response)

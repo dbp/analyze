@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-07 23:32:54.550937 UTC
+Depends: 2014-01-02-base-schema
+Apply:
+  ALTER TABLE day_visits DROP CONSTRAINT day_visits_day_site_id_unique;
+  ALTER TABLE day_visits ADD CONSTRAINT day_visits_day_site_id_unique UNIQUE (day, site_id, url);
+
+Revert:
+  ALTER TABLE day_visits DROP CONSTRAINT day_visits_day_site_id_unique;
+  ALTER TABLE day_visits ADD CONSTRAINT day_visits_day_site_id_unique UNIQUE (day, site_id);

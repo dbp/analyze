@@ -9,6 +9,7 @@ import           Data.Maybe (isNothing)
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth (AuthUser(..), UserId(..))
 import           Data.Time.Clock
+import           Data.Time.Calendar
 ------------------------------------------------------------------------------
 import           Application
 import           Helpers.Text
@@ -44,6 +45,19 @@ data SiteVisit = SiteVisit { visitId :: Int
                            }
 instance FromRow SiteVisit where
   fromRow = SiteVisit <$> field <*> field <*> field <*> field <*> field
+
+data DayVisit = DayVisit { dayDay :: Day
+                         , daySiteId :: Int
+                         , dayUrl :: Maybe Text
+                         , dayHits :: Int
+                         , dayMaxTime :: Double
+                         , dayMinTime :: Double
+                         , dayAvgTime :: Double
+                         , dayVarTime :: Double
+                         }
+instance FromRow DayVisit where
+  fromRow = DayVisit <$> field <*> field <*> field <*> field
+                      <*> field <*> field <*> field <*> field
 
 clearSites :: AppHandler ()
 clearSites = void $ execute_ "delete from sites"
@@ -99,3 +113,18 @@ newSiteVisit (SiteVisit _ s u r _) = do
   r <- idQuery "insert into visits_queue (site_id, url, render_time) values (?,?,?) returning id" (s, u, r)
   if isNothing r then registerError "newSiteVisit: Could not create new site visit." (Just $ tshow (s, u)) else return ()
   return r
+
+getVisits :: Int -> AppHandler [SiteVisit]
+getVisits n = query "select id, site_id, url, render_time, time from visits_queue order by id asc limit ?" (Only n)
+
+getDayVisit :: Int -> Day -> Text -> AppHandler (Maybe DayVisit)
+getDayVisit site_id day url = singleQuery "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? and url = ?" (site_id, day, url)
+
+newDayVisit :: DayVisit -> AppHandler ()
+newDayVisit (DayVisit d s u h mx mn avg var) =
+  void $ execute "insert into day_visits (day, site_id, url, hits, max_time, min_time, avg_time, var_time) values (?,?,?,?,?,?,?,?)" (d, s, u, h, mx, mn, avg, var)
+
+
+updateDayVisit :: DayVisit -> AppHandler ()
+updateDayVisit (DayVisit d s u h mx mn avg var) =
+  void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ?, site_id = ?, url = ?" (h, mx, mn, avg, var, d, s, u)

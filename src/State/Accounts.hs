@@ -9,6 +9,7 @@ import           Data.Maybe
 import           Database.PostgreSQL.Simple.FromField
 import           Database.PostgreSQL.Simple.ToField
 import           Snap.Snaplet.PostgresqlSimple
+import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Auth (UserId(..))
 ------------------------------------------------------------------------------
 import           Application
@@ -27,15 +28,9 @@ instance FromRow Account where
 instance ToField UserId where
   toField (UserId uid) = toField uid
 
--- copied from snaplet-postgresql-simple, since it isn't exported
-buildUid :: Int -> UserId
-buildUid = UserId . T.pack . show
-instance FromField UserId where
-    fromField f v = buildUid <$> fromField f v
-
 
 clearAccounts :: AppHandler ()
-clearAccounts = execute_ "delete from accounts" >> execute_ "delete from snap_auth_user" >> return ()
+clearAccounts = void $ execute_ "delete from accounts" >> execute_ "delete from snap_auth_user"
 
 countAccounts :: AppHandler Int
 countAccounts = numberQuery' "select count(*) from accounts"
