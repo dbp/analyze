@@ -36,6 +36,7 @@ import           State.Sites
 submitRoutes :: AppHandler ()
 submitRoutes  = route
                 [ ("/visit", visitHandler)
+                , ("/error", errorHandler)
                 ]
 
 visitHandler :: AppHandler ()
@@ -51,4 +52,20 @@ visitHandler = do
         Nothing -> pass
         Just token -> do
           newSiteVisit (SiteVisit (-1) (tokenSiteId token) (T.decodeUtf8 u) r (UTCTime (fromGregorian 0 0 0) 0))
+          return ()
+
+errorHandler :: AppHandler ()
+errorHandler = do
+  mt <- getParam "token"
+  mu <- getParam "url"
+  mm <- getParam "message"
+  muid <- getParam "uid"
+  case (,,) <$> mt <*> mu <*> mm of
+    Nothing -> pass
+    Just (t, u, m) -> do
+      mtoken <- getToken (T.decodeUtf8 t)
+      case mtoken of
+        Nothing -> pass
+        Just token -> do
+          newSiteError (SiteError (-1) (tokenSiteId token) (T.decodeUtf8 u) (T.decodeUtf8 m) (fmap T.decodeUtf8 muid) (UTCTime (fromGregorian 0 0 0) 0))
           return ()

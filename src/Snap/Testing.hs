@@ -193,13 +193,13 @@ testBool msg b = return $ if b then TestPass "" else TestFail msg
 testSuccess :: Response -> SnapTesting b TestLog
 testSuccess rsp = testEqual message 200 status
   where
-    message = pack $ "Expected success (200) but got (" ++ (show status) ++ ")"
+    message = pack $ "Expected success (200) but got (" ++ show status ++ ")"
     status  = rspStatus rsp
 
 test404 :: Response -> SnapTesting b TestLog
 test404 rsp = testEqual message 404 status
   where
-    message = pack $ "Expected Not Found (404) but got (" ++ (show status) ++ ")"
+    message = pack $ "Expected Not Found (404) but got (" ++ show status ++ ")"
     status = rspStatus rsp
 
 testRedirectTo :: ByteString
@@ -226,10 +226,7 @@ containsGen :: (Bool -> Bool) -> Text -> ByteString -> Response -> SnapTesting b
 containsGen b message match rsp =
   do
     body <- liftIO $ getResponseBody rsp
-    return $ if (b (body =~ match)) then TestPass "" else TestFail message
-  where
-    message = pack $ "Expected body to not match regexp \"" ++ show match
-              ++ "\", but did"
+    return $ if b (body =~ match) then TestPass "" else TestFail message
 
 testBodyContains :: ByteString  -- ^ Regexp that will match the body content
                 -> Response

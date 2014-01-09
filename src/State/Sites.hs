@@ -3,6 +3,7 @@
 module State.Sites where
 
 import           Control.Applicative
+import           Control.Monad (when)
 import           Control.Monad.Trans (liftIO)
 import           Data.Text (Text)
 import           Data.Maybe (isNothing)
@@ -45,6 +46,17 @@ data SiteVisit = SiteVisit { visitId :: Int
                            }
 instance FromRow SiteVisit where
   fromRow = SiteVisit <$> field <*> field <*> field <*> field <*> field
+
+
+data SiteError = SiteError { errorId :: Int
+                           , errorSiteId :: Int
+                           , errorUrl :: Text
+                           , errorMessage :: Text
+                           , errorUid :: Maybe Text
+                           , errorTime :: UTCTime
+                           }
+instance FromRow SiteError where
+  fromRow = SiteError <$> field <*> field <*> field <*> field <*> field <*> field
 
 data DayVisit = DayVisit { dayDay :: Day
                          , daySiteId :: Int
@@ -111,7 +123,7 @@ siteVisitsQueue site = query "select id, site_id, url, render_time, time from vi
 newSiteVisit :: SiteVisit -> AppHandler (Maybe Int)
 newSiteVisit (SiteVisit _ s u r _) = do
   r <- idQuery "insert into visits_queue (site_id, url, render_time) values (?,?,?) returning id" (s, u, r)
-  if isNothing r then registerError "newSiteVisit: Could not create new site visit." (Just $ tshow (s, u)) else return ()
+  when (isNothing r) (registerError "newSiteVisit: Could not create new site visit." (Just $ tshow (s, u)))
   return r
 
 getVisits :: Int -> AppHandler [SiteVisit]
@@ -128,3 +140,15 @@ newDayVisit (DayVisit d s u h mx mn avg var) =
 updateDayVisit :: DayVisit -> AppHandler ()
 updateDayVisit (DayVisit d s u h mx mn avg var) =
   void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ?, site_id = ?, url = ?" (h, mx, mn, avg, var, d, s, u)
+
+clearErrorsQueue :: AppHandler ()
+clearErrorsQueue = void $ execute_ "delete from errors_queue"
+
+siteErrorsQueue :: Site -> AppHandler [SiteError]
+siteErrorsQueue site = query "select id, site_id, url, message, user_id, time from errors_queue where site_id = ?" (Only $ siteId site)
+
+newSiteError :: SiteError -> AppHandler (Maybe Int)
+newSiteError (SiteError _ s u m uid _) = do
+  r <- idQuery "insert into errors_queue (site_id, url, message, user_id) values (?,?,?,?) returning id" (s, u, m, uid)
+  when (isNothing r) (registerError "newSiteError: Could not create new site visit." (Just $ tshow (s, u)))
+  return r

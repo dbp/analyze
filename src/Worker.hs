@@ -48,13 +48,17 @@ processVisits (v:vs) = do
       newDayVisit (DayVisit day (visitSiteId v) (Just url) (length times) (maximum times)
                    (minimum times) (average times) (variance times))
       processVisits rest
-    Just dv -> do -- calculate variance and average incrementally
-      let n = dayHits dv + length dvs
-      updateDayVisit $ dv { dayHits = n, dayMaxTime = max (dayMaxTime dv) (maximum times)
-                          , dayMinTime = min (dayMinTime dv) (minimum times)
-                          , dayAvgTime = onlineAverage (dayAvgTime dv) (dayHits dv) times
-                          , dayVarTime = onlineVariance (dayVarTime dv) (dayAvgTime dv) (dayHits dv) times}
-      undefined
+    Just dv -> do -- calculate variance and average
+       let n = dayHits dv + length dvs
+       updateDayVisit $ dv { dayHits = n, dayMaxTime = max (dayMaxTime dv) (maximum times)
+                           , dayMinTime = min (dayMinTime dv) (minimum times)
+                           , dayAvgTime = onlineAverage (dayAvgTime dv) (dayHits dv) times
+                           , dayVarTime = onlineVariance (dayVarTime dv)
+                                                         (dayAvgTime dv)
+                                                         (dayHits dv)
+                                                         times}
+       processVisits rest
+
 
 average :: [Double] -> Double
 average l = sum l / fromIntegral (length l)

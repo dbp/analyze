@@ -140,6 +140,23 @@ main = do
           (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
                                          , ("url", "/foo")
                                          , ("render", "100")])
+    cleanup clearErrorsQueue $ name "/submit/error" $ do
+      name "should 404 without token" $
+        notfound (post "/submit/error" $ params [("url", "/foo"), ("message", "Maybe.fromJust")])
+      name "should 404 without url" $
+        notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("message", "Maybe.fromJust")])
+      name "should 404 without message" $
+        notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("url", "/foo")])
+      name "should 404 with invalid token" $
+        notfound (post "/submit/visit" $ params [("token", "BLAH")
+                                                , ("url", "/foo")
+                                                , ("message", "Maybe.fromJust")])
+      name "should create a new entry in errors_queue" $
+        changes (+1) (fmap length (siteErrorsQueue site))
+          (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                         , ("url", "/foo")
+                                         , ("message", "Maybe.fromJust: Nothing")
+                                         , ("uid", "1")])
 
 
 -- App level helpers
