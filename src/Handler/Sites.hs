@@ -14,6 +14,8 @@ import           Data.Monoid
 import           Data.Maybe
 import           Data.Time.Clock
 import           Data.Time.Calendar
+import           Data.Time.Format
+import           System.Locale (defaultTimeLocale)
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
@@ -57,11 +59,12 @@ newSiteHandler account = do
   case r of
     (v, Nothing) -> renderWithSplices "sites/new" (digestiveSplices v)
     (_, Just (SiteData name url start_date user_pattern issue_pattern)) -> do
-      mid <- newSite (Site (-1) name url (UTCTime start_date 0) user_pattern issue_pattern)
+      let site = Site (-1) name url (UTCTime start_date 0) user_pattern issue_pattern
+      mid <- newSite site
       case mid of
         Nothing -> displayError "Could not create a new site." Nothing
-        Just id' ->
-          -- TODO(dbp 2014-01-03): Add user to site.
+        Just id' -> do
+          addSiteUser (site { siteId = id' }) account
           redirect $ sitePath id'
 
 siteHandler :: Account -> AppHandler ()
@@ -81,12 +84,16 @@ siteHandler account = do
               route [ ("", ifTop $ showSiteHandler account site)
                     , ("/edit", editSiteHandler account site)
                     , ("/token/new", newTokenHandler account site)
+                    , ("/day/:day", dayHandler account site)
                     ]
 
 showSiteHandler :: Account -> Site -> AppHandler ()
 showSiteHandler account site = do
   tokens <- getTokens site
-  renderWithSplices "sites/show" (siteSplice site <> ("tokens" ## tokensSplice tokens))
+  days <- getDaysWithVisits site
+  renderWithSplices "sites/show" (siteSplice site
+                                  <> ("tokens" ## tokensSplice tokens)
+                                  <> ("days" ## daysWithVisitsSplice days))
 
 editSiteHandler :: Account -> Site -> AppHandler ()
 editSiteHandler account site = do
@@ -102,3 +109,13 @@ newTokenHandler :: Account -> Site -> AppHandler ()
 newTokenHandler account site = do
   newToken site
   redirect $ sitePath (siteId site)
+
+dayHandler :: Account -> Site -> AppHandler ()
+dayHandler account site = do
+  md <- getParam "day"
+  case (fmap B8.unpack md) >>= (parseTime defaultTimeLocale "%F") of
+    Nothing -> pass
+    Just d -> do
+      vs <- getDaysVisits site d
+      renderWithSplices "sites/day/show" (siteSplice site
+                                         <> ("days" ## dayVisitsSplice vs))

@@ -13,7 +13,7 @@
   </ifLoggedIn>
 
   <ifLoggedOut>
-    <apply template="_login"/>
+    <a href="/auth/login">Login</a>
   </ifLoggedOut>
 
 </apply>

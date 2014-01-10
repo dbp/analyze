@@ -14,6 +14,7 @@ module Snap.Testing
        , notfound
        , redirects
        , redirectsto
+       , equals
        , changes
        , changes'
        , contains
@@ -25,7 +26,7 @@ module Snap.Testing
        ) where
 
 import           Data.Map (Map, fromList)
-import           Data.ByteString (ByteString)
+import           Data.ByteString (ByteString, isInfixOf)
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (append)
 import           Data.Text.Encoding (encodeUtf8)
@@ -42,7 +43,6 @@ import           Snap.Snaplet (Handler, SnapletInit)
 import           Snap.Test (RequestBuilder, getResponseBody)
 import qualified Snap.Test as Test
 import           Snap.Snaplet.Test (runHandler, evalHandler)
-import           Text.Regex.Posix ((=~))
 import           Test.QuickCheck (Args(..), Result(..), Testable, quickCheckWithResult, stdArgs)
 
 -- Basic Types
@@ -103,6 +103,12 @@ params :: [(ByteString, ByteString)] -> Map ByteString [ByteString]
 params = fromList . map (\x -> (fst x, [snd x]))
 
 -- Assertions
+equals :: (Show a, Eq a) => a -> Handler b b a -> SnapTesting b ()
+equals a ha = do
+  b <- eval ha
+  res <- testEqual "Expected value to equal " a b
+  tell [res]
+
 succeeds :: TestRequest -> SnapTesting b ()
 succeeds req = run req testSuccess
 
@@ -231,21 +237,21 @@ containsGen :: (Bool -> Bool) -> Text -> ByteString -> Response -> SnapTesting b
 containsGen b message match rsp =
   do
     body <- liftIO $ getResponseBody rsp
-    return $ if b (body =~ match) then TestPass "" else TestFail message
+    return $ if b (match `isInfixOf` body) then TestPass "" else TestFail message
 
-testBodyContains :: ByteString  -- ^ Regexp that will match the body content
+testBodyContains :: ByteString
                 -> Response
                 -> SnapTesting b TestLog
 testBodyContains match = containsGen id message match
   where
-    message = pack $ "Expected body to match regexp \"" ++ show match
+    message = pack $ "Expected body to contain \"" ++ show match
               ++ "\", but didn't"
 
 
-testBodyNotContains :: ByteString  -- ^ Regexp that will match the body content
+testBodyNotContains :: ByteString
                    -> Response
                    -> SnapTesting b TestLog
 testBodyNotContains match = containsGen not message match
   where
-    message = pack $ "Expected body to not match regexp \"" ++ show match
+    message = pack $ "Expected body to not contain \"" ++ show match
               ++ "\", but did"

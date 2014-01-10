@@ -11,9 +11,12 @@ import Control.Monad.Trans (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import Data.ByteString (ByteString)
 import Data.Time.Calendar
 import Data.Time.Clock
+import Data.Time.Format
+import System.Locale (defaultTimeLocale)
 import System.Random (randomIO)
 import System.Process (system)
 
@@ -147,30 +150,37 @@ main = do
                                              <*> (siteDayVisits site))
           (eval $ do vis <- getMarkVisits 1
                      processVisits vis)
+      today <- liftIO getCurrentTime
+      loginAs user $ name "day visits" $ do
+        let day_url = B.append site_url (B.append "/day/" (B8.pack (formatTime defaultTimeLocale "%F" today)))
+        name "show site should show link to day of visit" $
+          contains (get site_url) (T.decodeUtf8 day_url)
+        name "day url should exist" $ do
+          succeeds (get day_url)
     name "/submit/error" $ do
-      name "should 404 without token" $
-        notfound (post "/submit/error" $ params [("url", "/foo"), ("message", "Maybe.fromJust")])
-      name "should 404 without url" $
-        notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("message", "Maybe.fromJust")])
-      name "should 404 without message" $
-        notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("url", "/foo")])
-      name "should 404 with invalid token" $
-        notfound (post "/submit/visit" $ params [("token", "BLAH")
-                                                , ("url", "/foo")
-                                                , ("message", "Maybe.fromJust")])
-      name "should create a new entry in errors_queue" $
-        changes (+1) (fmap length (siteErrorsQueue site))
-          (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                         , ("url", "/foo")
-                                         , ("message", "Maybe.fromJust: Nothing")
-                                         , ("uid", "1")])
-      name "processErrors should result in a new error, and empty queue" $
-        changes' (\(a,b,c) -> (a - 1, b + 1, c + 1)) ((\a b c -> (length a, length b, c))
-                                                      <$> (siteErrorsQueue site)
-                                                      <*> (siteErrors site)
-                                                      <*> countErrorExamples)
-          (eval $ do errs <- getMarkErrors 1
-                     processErrors errs)
+       name "should 404 without token" $
+         notfound (post "/submit/error" $ params [("url", "/foo"), ("message", "Maybe.fromJust")])
+       name "should 404 without url" $
+         notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("message", "Maybe.fromJust")])
+       name "should 404 without message" $
+         notfound (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token), ("url", "/foo")])
+       name "should 404 with invalid token" $
+         notfound (post "/submit/visit" $ params [("token", "BLAH")
+                                                 , ("url", "/foo")
+                                                 , ("message", "Maybe.fromJust")])
+       name "should create a new entry in errors_queue" $
+         changes (+1) (fmap length (siteErrorsQueue site))
+           (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                          , ("url", "/foo")
+                                          , ("message", "Maybe.fromJust: Nothing")
+                                          , ("uid", "1")])
+       name "processErrors should result in a new error, and empty queue" $
+         changes' (\(a,b,c) -> (a - 1, b + 1, c + 1)) ((\a b c -> (length a, length b, c))
+                                                       <$> (siteErrorsQueue site)
+                                                       <*> (siteErrors site)
+                                                       <*> countErrorExamples)
+           (eval $ do errs <- getMarkErrors 1
+                      processErrors errs)
 
 
 

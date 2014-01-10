@@ -169,6 +169,12 @@ updateDayVisit (DayVisit d s u h mx mn avg var) =
 siteDayVisits :: Site -> AppHandler [DayVisit]
 siteDayVisits s = query "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ?" (Only $ siteId s)
 
+getDaysVisits :: Site -> Day -> AppHandler [DayVisit]
+getDaysVisits s d = query "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ?" (siteId s, d)
+
+getDaysWithVisits :: Site -> AppHandler [Day]
+getDaysWithVisits s = fmap (map head) $ query "select distinct day from day_visits where site_id = ? order by day desc" (Only (siteId s))
+
 clearErrorsQueue :: AppHandler ()
 clearErrorsQueue = void $ execute_ "delete from errors_queue"
 
