@@ -16,6 +16,9 @@ import           Application
 import           State.Sites
 import           Helpers.Text
 
+sitesSplice :: [Site] -> I.Splice AppHandler
+sitesSplice = I.mapSplices (I.runChildrenWith . siteSplice)
+
 siteSplice :: Site -> Splices (I.Splice AppHandler)
 siteSplice (Site id' name url start_date user_link issue_link) = do
   "id" ## I.textSplice $ T.pack $ show id'
@@ -47,7 +50,7 @@ dayVisitSplice (DayVisit day si url hits mx mn avg var) = do
   "site-id" ## I.textSplice $ tshow si
   "url" ## I.textSplice $ fromMaybe "NONE" url
   "hits" ## I.textSplice $ tshow hits
-  "max" ## I.textSplice $ tshow mx
-  "min" ## I.textSplice $ tshow mn
-  "avg" ## I.textSplice $ tshow avg
-  "var" ## I.textSplice $ tshow var
+  "max" ## I.textSplice $ tshow' 4 mx
+  "min" ## I.textSplice $ tshow' 4 mn
+  "avg" ## I.textSplice $ tshow' 4 avg
+  "var" ## I.textSplice $ tshow' 4 var

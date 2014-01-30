@@ -107,6 +107,12 @@ newSite (Site _ n u s ulp ilp) = do
 getSite :: Int -> AppHandler (Maybe Site)
 getSite id' = singleQuery "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites where id = ?" (Only id')
 
+getUserSites :: AuthUser -> AppHandler [Site]
+getUserSites u =
+  case userId u of
+    Nothing -> return []
+    Just uid -> query "select id, name, url, start_date, user_link_pattern, issue_link_pattern from sites join site_users on site_id = id where user_id = ?" (Only uid)
+
 updateSite :: Site -> AppHandler ()
 updateSite (Site i n u s ulp ilp) = void $ execute "update sites set name = ?, url = ?, start_date = ?, user_link_pattern = ?, issue_link_pattern = ? where id = ?" (n, u, s, ulp, ilp, i)
 
@@ -148,7 +154,7 @@ newSiteVisit (SiteVisit _ s u r _) = do
   return r
 
 getMarkVisits :: Int -> AppHandler [SiteVisit]
-getMarkVisits n = query "update visits_queue set processing = true where id in (select id from visits_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, render_time, time " (Only n)
+getMarkVisits n = query "update visits_queue set processing = true where id in (select id from visits_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, render_time, time" (Only n)
 
 deleteVisitQueueItem :: Int -> AppHandler ()
 deleteVisitQueueItem i = void $ execute "delete from visits_queue where id = ?" (Only i)
@@ -164,7 +170,7 @@ newDayVisit (DayVisit d s u h mx mn avg var) =
 
 updateDayVisit :: DayVisit -> AppHandler ()
 updateDayVisit (DayVisit d s u h mx mn avg var) =
-  void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ?, site_id = ?, url = ?" (h, mx, mn, avg, var, d, s, u)
+  void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ? and site_id = ? and url = ?" (h, mx, mn, avg, var, d, s, u)
 
 siteDayVisits :: Site -> AppHandler [DayVisit]
 siteDayVisits s = query "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ?" (Only $ siteId s)
@@ -197,7 +203,7 @@ newSiteError (SiteError _ s u m uid _) = do
   return r
 
 getMarkErrors :: Int -> AppHandler [SiteError]
-getMarkErrors n = query "update errors_queue set processing = true where id in (select id from errors_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, message, user_id, time " (Only n)
+getMarkErrors n = query "update errors_queue set processing = true where id in (select id from errors_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, message, user_id, time" (Only n)
 
 getErrorByMessage :: Text -> Int -> AppHandler (Maybe ErrorSummary)
 getErrorByMessage m si = singleQuery "select id, site_id, message, resolved, created, issue_id from errors where message = ? and site_id = ?" (m, si)

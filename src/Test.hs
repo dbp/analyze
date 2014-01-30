@@ -18,12 +18,11 @@ import Data.Time.Clock
 import Data.Time.Format
 import System.Locale (defaultTimeLocale)
 import System.Random (randomIO)
-import System.Process (system)
 
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
-import Snap.Testing
+import Snap.Test.BDD
 
 import Application
 import Site
@@ -35,11 +34,28 @@ import Worker hiding (main)
 
 main :: IO ()
 main = do
-  runSnapTests [consoleReport, desktopReport] (route routes) app $ do
+  runSnapTests [consoleReport, linuxDesktopReport] (route routes) app $ do
   name "online variance" $
     quickCheck varianceProp
-  name "/ success" $
-    succeeds (get "/")
+  name "/" $ do
+    name "success" $
+      succeeds (get "/")
+    name "shows links to sites" $
+      cleanup clearAccounts $ cleanup clearSites $ do
+        (ac, au) <- fmap fromJust (eval getRandomUser)
+        loginAs au $ do
+          let site' = (Site (-1) "Some Site" "http://acme.com"
+                                                   (UTCTime (fromGregorian 2014 1 1) 0)
+                                                   "http://acme.com/user/*"
+                                                   "http://acme.com/issue/*")
+          site_id <- fmap fromJust $ eval (newSite site')
+          let site = site' { siteId = site_id }
+          let site_url = B.append "/site/" (T.encodeUtf8 $ tshow site_id)
+          notcontains (get "/") (T.decodeUtf8 site_url)
+          eval (addSiteUser site ac)
+          contains (get "/") (T.decodeUtf8 site_url)
+    name "shows a new site link" $ do
+      withUser $ contains (get "/") "/site/new"
   name "/foo/bar not found" $
     notfound (get "/foo/bar")
   name "/auth/new_user" $ do
@@ -182,23 +198,6 @@ main = do
            (eval $ do errs <- getMarkErrors 1
                       processErrors errs)
 
-
-
--- App level helpers
-desktopReport :: [TestResult] -> IO ()
-desktopReport res = do
-  let (passed, total) = count res
-  case passed == total of
-    True ->
-      void $ system $ "notify-send -u low -t 2000 'All Tests Passing' 'All " ++ (show total) ++ " tests passed.'"
-    False ->
-      void $ system $ "notify-send -u normal -t 2000 'Some Tests Failing' '" ++ (show (total - passed)) ++ " out of " ++ (show total) ++ " tests failed.'"
- where count [] = (0, 0)
-       count (ResultName _ children : xs) = count (children ++ xs)
-       count (ResultPass _ : xs) = let (p, t) = count xs
-                                   in (1 + p, 1 + t)
-       count (ResultFail _ : xs) = let (p, t) = count xs
-                                   in (p, 1 + t)
 
 -- Authentication
 withUser :: SnapTesting App a -> SnapTesting App a

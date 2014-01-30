@@ -3,21 +3,26 @@
 module Handler.Top (routes) where
 
 
+import           Data.Monoid
 import           Data.ByteString (ByteString)
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet
+import           Snap.Snaplet.Auth
 import           Snap.Core
+import           Heist
 ------------------------------------------------------------------------------
 import           Application
 import           Handler.Auth (authRoutes)
 import           Handler.Sites (sitesRoutes)
 import           Handler.Submit (submitRoutes)
+import           State.Sites (getUserSites)
+import           Splices.Sites (sitesSplice)
 import           Helpers.Auth (withAccount)
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, AppHandler ())]
-routes = [ ("", ifTop $ indexHandler)
+routes = [ ("", ifTop indexHandler)
          , ("/site", withAccount sitesRoutes)
          , ("/auth", authRoutes)
          , ("/submit", submitRoutes)
@@ -25,7 +30,14 @@ routes = [ ("", ifTop $ indexHandler)
          ]
 
 indexHandler :: AppHandler ()
-indexHandler = render "index"
+indexHandler = do
+  u <- with auth currentUser
+  s <- case u of
+         Nothing -> return mempty
+         Just user -> do
+           sites <- getUserSites user
+           return ("sites" ## sitesSplice sites)
+  renderWithSplices "index" s
 
 notFoundHandler :: AppHandler ()
 notFoundHandler = do
