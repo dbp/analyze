@@ -18,6 +18,13 @@ Flag old-base
   default: False
   manual: False
 
+Executable worker
+  hs-source-dirs: src
+  main-is: Worker.hs
+
+  Build-depends:
+    containers
+
 Executable analyze
   hs-source-dirs: src
   main-is: Main.hs
@@ -40,7 +47,8 @@ Executable analyze
     digestive-functors-snap,
     digestive-functors-heist,
     random,
-    old-locale
+    old-locale,
+    snap-testing >= 0.2
 
   if flag(old-base)
     build-depends:

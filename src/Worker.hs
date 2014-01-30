@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Worker where
+module Main where
 
 import qualified Data.Map as M (empty)
 import System.Environment (getArgs)
@@ -44,7 +44,7 @@ processVisits (v:vs) = do
   let times = map visitRenderTime dvs
   mdv <- getDayVisit (visitSiteId v) day url
   case mdv of
-    Nothing -> do
+    Nothing ->
       newDayVisit (DayVisit day (visitSiteId v) (Just url) (length times) (maximum times)
                    (minimum times) (average times) (variance times))
     Just dv -> do -- calculate variance and average
@@ -56,7 +56,7 @@ processVisits (v:vs) = do
                                                          (dayAvgTime dv)
                                                          (dayHits dv)
                                                          times}
-
+  mapM_ (deleteVisitQueueItem . visitId) dvs
   deleteVisitQueueItem (visitId v)
   processVisits rest
 
