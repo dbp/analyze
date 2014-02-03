@@ -18,9 +18,9 @@ deploy-static: send-static
 	ssh $(USER)@$(SERVER) "/var/www/scripts/reload.sh"
 
 send: send-static
-	cabal install
-	scp dist/build/analyze/analyze $(USER)@$(SERVER):analyze-new
-        scp dist/build/worker/worker $(USER)@$(SERVER):worker
+	cabal install; \
+	scp dist/build/analyze/analyze $(USER)@$(SERVER):analyze-new; \
+        scp dist/build/worker/worker $(USER)@$(SERVER):worker-new
 
 send-static:
 	scp angel.conf $(USER)@$(SERVER):

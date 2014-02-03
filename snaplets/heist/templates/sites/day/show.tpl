@@ -2,6 +2,7 @@
   <table>
     <tr>
       <th>url</th>
+      <th>method</th>
       <th>hits</th>
       <th>max</th>
       <th>min</th>
@@ -11,6 +12,7 @@
     <days>
       <tr>
         <td><url/></td>
+        <td><method/></td>
         <td><hits/></td>
         <td><max/>ms</td>
         <td><min/>ms</td>

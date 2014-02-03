@@ -21,6 +21,7 @@ Flag old-base
 Executable worker
   hs-source-dirs: src
   main-is: Worker.hs
+  ghc-options: -main-is Worker
 
   Build-depends:
     containers

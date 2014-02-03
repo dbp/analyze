@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-01-30 14:32:19.1693 UTC
+Depends: 2014-01-09-add-processing-to-queues 2014-01-07-fix-day-visits-unique-constraint 2014-01-02-base-schema
+Apply:
+  ALTER TABLE visits_queue ADD COLUMN method text not null default 'get';
+  ALTER TABLE day_visits ADD COLUMN method text not null;
+
+Revert:
+  ALTER TABLE visits_queue DROP COLUMN method;
+  ALTER TABLE day_visits DROP COLUMN method;

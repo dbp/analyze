@@ -43,9 +43,10 @@ data SiteVisit = SiteVisit { visitId :: Int
                            , visitUrl :: Text
                            , visitRenderTime :: Double
                            , visitTime :: UTCTime
+                           , visitMethod :: Text
                            } deriving (Eq, Show)
 instance FromRow SiteVisit where
-  fromRow = SiteVisit <$> field <*> field <*> field <*> field <*> field
+  fromRow = SiteVisit <$> field <*> field <*> field <*> field <*> field <*> field
 
 
 data SiteError = SiteError { serrorId :: Int
@@ -61,6 +62,7 @@ instance FromRow SiteError where
 data DayVisit = DayVisit { dayDay :: Day
                          , daySiteId :: Int
                          , dayUrl :: Maybe Text
+                         , dayMethod :: Text
                          , dayHits :: Int
                          , dayMaxTime :: Double
                          , dayMinTime :: Double
@@ -69,7 +71,7 @@ data DayVisit = DayVisit { dayDay :: Day
                          } deriving (Eq, Show)
 instance FromRow DayVisit where
   fromRow = DayVisit <$> field <*> field <*> field <*> field
-                      <*> field <*> field <*> field <*> field
+                      <*> field <*> field <*> field <*> field <*> field
 
 data ErrorSummary = ErrorSummary { errorId :: Int
                                  , errorSiteId :: Int
@@ -145,38 +147,38 @@ clearVisitsQueue :: AppHandler ()
 clearVisitsQueue = void $ execute_ "delete from visits_queue"
 
 siteVisitsQueue :: Site -> AppHandler [SiteVisit]
-siteVisitsQueue site = query "select id, site_id, url, render_time, time from visits_queue where site_id = ?" (Only $ siteId site)
+siteVisitsQueue site = query "select id, site_id, url, render_time, time, method from visits_queue where site_id = ?" (Only $ siteId site)
 
 newSiteVisit :: SiteVisit -> AppHandler (Maybe Int)
-newSiteVisit (SiteVisit _ s u r _) = do
-  r <- idQuery "insert into visits_queue (site_id, url, render_time) values (?,?,?) returning id" (s, u, r)
+newSiteVisit (SiteVisit _ s u r _ m) = do
+  r <- idQuery "insert into visits_queue (site_id, url, render_time, method) values (?,?,?,?) returning id" (s, u, r, m)
   when (isNothing r) (registerError "newSiteVisit: Could not create new site visit." (Just $ tshow (s, u)))
   return r
 
 getMarkVisits :: Int -> AppHandler [SiteVisit]
-getMarkVisits n = query "update visits_queue set processing = true where id in (select id from visits_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, render_time, time" (Only n)
+getMarkVisits n = query "update visits_queue set processing = true where id in (select id from visits_queue where processing = false order by id asc limit ?) and processing = false returning id, site_id, url, render_time, time, method" (Only n)
 
 deleteVisitQueueItem :: Int -> AppHandler ()
 deleteVisitQueueItem i = void $ execute "delete from visits_queue where id = ?" (Only i)
 
 
-getDayVisit :: Int -> Day -> Text -> AppHandler (Maybe DayVisit)
-getDayVisit site_id day url = singleQuery "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? and url = ?" (site_id, day, url)
+getDayVisit :: Int -> Day -> Text -> Text -> AppHandler (Maybe DayVisit)
+getDayVisit site_id day url meth = singleQuery "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? and url = ? and method = ?" (site_id, day, url, meth)
 
 newDayVisit :: DayVisit -> AppHandler ()
-newDayVisit (DayVisit d s u h mx mn avg var) =
-  void $ execute "insert into day_visits (day, site_id, url, hits, max_time, min_time, avg_time, var_time) values (?,?,?,?,?,?,?,?)" (d, s, u, h, mx, mn, avg, var)
+newDayVisit (DayVisit d s u m h mx mn avg var) =
+  void $ execute "insert into day_visits (day, site_id, url, method, hits, max_time, min_time, avg_time, var_time) values (?,?,?,?,?,?,?,?,?)" (d, s, u, m, h, mx, mn, avg, var)
 
 
 updateDayVisit :: DayVisit -> AppHandler ()
-updateDayVisit (DayVisit d s u h mx mn avg var) =
-  void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ? and site_id = ? and url = ?" (h, mx, mn, avg, var, d, s, u)
+updateDayVisit (DayVisit d s u m h mx mn avg var) =
+  void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ? and site_id = ? and url = ? and method = ?" (h, mx, mn, avg, var, d, s, u, m)
 
 siteDayVisits :: Site -> AppHandler [DayVisit]
-siteDayVisits s = query "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ?" (Only $ siteId s)
+siteDayVisits s = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ?" (Only $ siteId s)
 
 getDaysVisits :: Site -> Day -> AppHandler [DayVisit]
-getDaysVisits s d = query "select day, site_id, url, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ?" (siteId s, d)
+getDaysVisits s d = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ?" (siteId s, d)
 
 getDaysWithVisits :: Site -> AppHandler [Day]
 getDaysWithVisits s = fmap (map head) $ query "select distinct day from day_visits where site_id = ? order by day desc" (Only (siteId s))
@@ -189,9 +191,6 @@ clearErrors = void $ execute_ "delete from errors"
 
 siteErrorsQueue :: Site -> AppHandler [SiteError]
 siteErrorsQueue site = query "select id, site_id, url, message, user_id, time from errors_queue where site_id = ?" (Only $ siteId site)
-
-siteErrors :: Site -> AppHandler [ErrorSummary]
-siteErrors site = query "select id, site_id, message, resolved, created, issue_id from errors where site_id = ?" (Only $ siteId site)
 
 countErrorExamples :: AppHandler Int
 countErrorExamples = numberQuery' "select count(*) from errors_examples"
@@ -208,6 +207,11 @@ getMarkErrors n = query "update errors_queue set processing = true where id in (
 getErrorByMessage :: Text -> Int -> AppHandler (Maybe ErrorSummary)
 getErrorByMessage m si = singleQuery "select id, site_id, message, resolved, created, issue_id from errors where message = ? and site_id = ?" (m, si)
 
+getSiteErrors :: Site -> AppHandler [ErrorSummary]
+getSiteErrors s = query "select id, site_id, message, resolved, created, issue_id from errors where site_id = ?" (Only (siteId s))
+
+getErrorById :: Site -> Int -> AppHandler (Maybe ErrorSummary)
+getErrorById s i = singleQuery "select id, site_id, message, resolved, created, issue_id from errors where id = ? and site_id = ?" (i, siteId s)
 
 newErrorSummary :: ErrorSummary -> AppHandler (Maybe Int)
 newErrorSummary (ErrorSummary _ s m r c iid) = do
@@ -220,6 +224,9 @@ newErrorExample (ErrorExample _ e url time uid) = do
   r <- idQuery "insert into errors_examples (error_id, url, time, user_id) values (?,?,?,?) returning id" (e, url, time, uid)
   when (isNothing r) (registerError "newErrorExample: Could not create new error example." (Just $ tshow (e, url, time, uid)))
   return r
+
+getErrorExamples :: ErrorSummary -> AppHandler [ErrorExample]
+getErrorExamples e = query "select id, error_id, url, time, user_id from errors_examples where error_id = ?" (Only (errorId e))
 
 deleteErrorQueueItem :: Int -> AppHandler ()
 deleteErrorQueueItem i = void $ execute "delete from errors_queue where id = ?" (Only i)

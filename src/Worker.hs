@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Worker where
 
 import qualified Data.Map as M (empty)
 import System.Environment (getArgs)
@@ -40,12 +40,13 @@ processVisits [] = return ()
 processVisits (v:vs) = do
   let day = utctDay $ visitTime v
   let url = visitUrl v
-  let (dvs, rest) = partition (\x -> utctDay (visitTime x) == day && visitUrl x == url) (v:vs)
+  let meth = visitMethod v
+  let (dvs, rest) = partition (\x -> utctDay (visitTime x) == day && visitUrl x == url && visitMethod x == meth) (v:vs)
   let times = map visitRenderTime dvs
-  mdv <- getDayVisit (visitSiteId v) day url
+  mdv <- getDayVisit (visitSiteId v) day url meth
   case mdv of
     Nothing ->
-      newDayVisit (DayVisit day (visitSiteId v) (Just url) (length times) (maximum times)
+      newDayVisit (DayVisit day (visitSiteId v) (Just url) meth (length times) (maximum times)
                    (minimum times) (average times) (variance times))
     Just dv -> do -- calculate variance and average
        let n = dayHits dv + length dvs

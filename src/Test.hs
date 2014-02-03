@@ -144,28 +144,38 @@ main = do
 
     name "/submit/visit" $ do
       name "should 404 without token" $
-        notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100")])
+        notfound (post "/submit/visit" $ params [("url", "/foo"), ("render", "100"), ("method", "get")])
       name "should 404 without url" $
         notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                                , ("render", "100")])
+                                                , ("render", "100")
+                                                , ("method", "get")])
       name "should 404 without render" $
         notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
-                                                , ("url", "/foo")])
+                                                , ("url", "/foo")
+                                                , ("method", "get")])
+      name "should 404 without method" $
+        notfound (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                                , ("url", "/foo")
+                                                , ("render", "100")])
       name "should 404 with invalid token" $
         notfound (post "/submit/visit" $ params [("token", "BLAH")
                                                 , ("url", "/foo")
-                                                , ("render", "100")])
+                                                , ("render", "100")
+                                                , ("method", "get")])
       name "should create a new entry in visits_queue" $
         changes (+1) (fmap length (siteVisitsQueue site))
           (post "/submit/visit" $ params [("token", T.encodeUtf8 $ tokenText token)
                                          , ("url", "/foo")
-                                         , ("render", "100")])
-      name "processVisits should result in a day visit, and empty queue" $
+                                         , ("render", "100")
+                                         , ("method", "get")])
+      name "processVisits should result in a day visit, and empty queue" $ do
         changes' (\(a,b) -> (a - 1, b + 1)) ((\a b -> (length a, length b))
                                              <$> (siteVisitsQueue site)
                                              <*> (siteDayVisits site))
           (eval $ do vis <- getMarkVisits 1
                      processVisits vis)
+        equals 1 (fmap length (siteDayVisits site))
+        equals 1 (fmap length (getDaysWithVisits site))
       today <- liftIO getCurrentTime
       loginAs user $ name "day visits" $ do
         let day_url = B.append site_url (B.append "/day/" (B8.pack (formatTime defaultTimeLocale "%F" today)))
@@ -183,20 +193,30 @@ main = do
        name "should 404 with invalid token" $
          notfound (post "/submit/visit" $ params [("token", "BLAH")
                                                  , ("url", "/foo")
-                                                 , ("message", "Maybe.fromJust")])
+                                                 , ("message", "Maybe.fromJust")
+                                                 , ("method", "get")])
        name "should create a new entry in errors_queue" $
          changes (+1) (fmap length (siteErrorsQueue site))
            (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token)
                                           , ("url", "/foo")
                                           , ("message", "Maybe.fromJust: Nothing")
                                           , ("uid", "1")])
-       name "processErrors should result in a new error, and empty queue" $
-         changes' (\(a,b,c) -> (a - 1, b + 1, c + 1)) ((\a b c -> (length a, length b, c))
-                                                       <$> (siteErrorsQueue site)
-                                                       <*> (siteErrors site)
-                                                       <*> countErrorExamples)
+       name "processErrors should result in a new error, and empty queue" $ do
+          changes' (\(a,b,c) -> (a - 1, b + 1, c + 1)) ((\a b c -> (length a, length b, c))
+                                                        <$> (siteErrorsQueue site)
+                                                        <*> (getSiteErrors site)
+                                                        <*> countErrorExamples)
            (eval $ do errs <- getMarkErrors 1
                       processErrors errs)
+          equals 1 (fmap length (getSiteErrors site))
+       loginAs user $ name "error summaries" $ do
+         er <- fmap head (eval $ getSiteErrors site)
+         let er_url = B.append site_url (B.append "/error/" (B8.pack (show (errorId er))))
+         name "show site should show link to error summary" $
+           contains (get site_url) (T.decodeUtf8 er_url)
+         name "error url should exist" $ do
+           succeeds (get er_url)
+
 
 
 -- Authentication

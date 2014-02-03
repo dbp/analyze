@@ -31,6 +31,7 @@ import           Helpers.Errors
 import           Helpers.Text
 import           Helpers.Forms
 import           Helpers.Auth
+import           Helpers.Misc
 import           State.Sites
 import           State.Accounts
 import           Splices.Sites
@@ -85,15 +86,18 @@ siteHandler account = do
                     , ("/edit", editSiteHandler account site)
                     , ("/token/new", newTokenHandler account site)
                     , ("/day/:day", dayHandler account site)
+                    , ("/error/:id", errorHandler account site)
                     ]
 
 showSiteHandler :: Account -> Site -> AppHandler ()
 showSiteHandler account site = do
   tokens <- getTokens site
   days <- getDaysWithVisits site
+  errs <- getSiteErrors site
   renderWithSplices "sites/show" (siteSplice site
                                   <> ("tokens" ## tokensSplice tokens)
-                                  <> ("days" ## daysWithVisitsSplice days))
+                                  <> ("days" ## daysWithVisitsSplice days)
+                                  <> ("errors" ## errorsSplice errs))
 
 editSiteHandler :: Account -> Site -> AppHandler ()
 editSiteHandler account site = do
@@ -119,3 +123,19 @@ dayHandler account site = do
       vs <- getDaysVisits site d
       renderWithSplices "sites/day/show" (siteSplice site
                                          <> ("days" ## dayVisitsSplice vs))
+
+errorHandler :: Account -> Site -> AppHandler ()
+errorHandler account site = do
+  mi <- getParam "id"
+  case (fmap B8.unpack mi) >>= readSafe of
+    Nothing -> pass
+    Just i -> do
+      me <- getErrorById site i
+      case me of
+        Nothing -> pass
+        Just e -> do
+          exs <- getErrorExamples e
+          renderWithSplices "sites/error/show" (do
+            "site" ## I.runChildrenWith (siteSplice site)
+            errorSplices e
+            "examples" ## examplesSplices exs)

@@ -39,19 +39,26 @@ submitRoutes  = route
                 , ("/error", errorHandler)
                 ]
 
+validateMethod :: ByteString -> Maybe ByteString
+validateMethod "get" = Just "get"
+validateMethod "post" = Just "post"
+validateMethod "put" = Just "put"
+validateMethod "delete" = Just "delete"
+
 visitHandler :: AppHandler ()
 visitHandler = do
   mt <- getParam "token"
   mu <- getParam "url"
   mr <- getParam "render"
-  case (,,) <$> mt <*> mu <*> ((fmap B8.unpack mr) >>= readSafe) of
+  mm <- getParam "method"
+  case (,,,) <$> mt <*> mu <*> ((fmap B8.unpack mr) >>= readSafe) <*> (mm >>= validateMethod) of
     Nothing -> pass
-    Just (t, u, r) -> do
+    Just (t, u, r, m) -> do
       mtoken <- getToken (T.decodeUtf8 t)
       case mtoken of
         Nothing -> pass
         Just token -> do
-          newSiteVisit (SiteVisit (-1) (tokenSiteId token) (T.decodeUtf8 u) r (UTCTime (fromGregorian 0 0 0) 0))
+          newSiteVisit (SiteVisit (-1) (tokenSiteId token) (T.decodeUtf8 u) r (UTCTime (fromGregorian 0 0 0) 0) (T.decodeUtf8 m))
           return ()
 
 errorHandler :: AppHandler ()

@@ -6,3 +6,5 @@ dist/
 log/*
 moo.sh
 moo_test.sh
+*.#*
+*#

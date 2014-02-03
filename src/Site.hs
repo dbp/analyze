@@ -17,15 +17,34 @@ import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Snaplet.PostgresqlSimple
 import           Heist
 import qualified Heist.Interpreted as I
+import qualified Text.XmlHtml as X
 ------------------------------------------------------------------------------
 import           Application
 import           Handler.Top (routes)
+
+rebindSplice :: I.Splice AppHandler
+rebindSplice = do
+  node <- getParamNode
+  let attrs = do o <- X.getAttribute "old" node
+                 n <- X.getAttribute "new" node
+                 return (o, n)
+  case attrs of
+    Nothing -> return []
+    Just (old, new) -> do
+      st <- getHS
+      let spl = I.lookupSplice old st
+      case spl of
+        Nothing -> return []
+        Just splice -> do
+           modifyHS $ I.bindSplice new splice
+           return []
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An analyzer application" Nothing $ do
-    let defaultHeistConfig = mempty { hcLoadTimeSplices = defaultLoadTimeSplices }
+    let defaultHeistConfig = mempty { hcLoadTimeSplices = defaultLoadTimeSplices
+                                    , hcInterpretedSplices = "rebind" ## rebindSplice }
     h <- nestSnaplet "" heist $ heistInit' "templates" defaultHeistConfig
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
