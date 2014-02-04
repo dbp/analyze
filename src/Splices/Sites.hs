@@ -90,6 +90,7 @@ errorSplices (ErrorSummary i si m r c ii) = do
   "created" ## I.textSplice $ T.pack $ formatTime defaultTimeLocale "%F %T" c
   "issue-id" ## I.textSplice (fromMaybe "" ii)
   "has-issue-id" ## ifISplice (isJust ii)
+  "no-issue-id" ## ifISplice (not $ isJust ii)
 
 examplesSplices :: [ErrorExample] -> I.Splice AppHandler
 examplesSplices = I.mapSplices (I.runChildrenWith . exampleSplices)

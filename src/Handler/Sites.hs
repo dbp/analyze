@@ -45,6 +45,10 @@ sitesRoutes account = route $ map (\x -> (fst x, snd x account))
 sitePath :: Int -> ByteString
 sitePath id' = B.concat [rootUrl, "/site/", B8.pack $ show id']
 
+errorPath :: ErrorSummary -> ByteString
+errorPath e = B.concat [rootUrl, "/site/", B8.pack $ show $ errorSiteId e, "/error/"
+                       , B8.pack $ show $ errorId e]
+
 data SiteData = SiteData Text Text Day Text Text
 siteForm :: Maybe Site -> Form Text AppHandler SiteData
 siteForm m = SiteData
@@ -134,9 +138,31 @@ errorHandler account site = do
       me <- getErrorById site i
       case me of
         Nothing -> pass
-        Just e -> do
-          exs <- getErrorExamples e
-          renderWithSplices "sites/error/show" (do
-            "site" ## I.runChildrenWith (siteSplice site)
-            errorSplices e
-            "examples" ## examplesSplices exs)
+        Just e ->
+          route [("", ifTop (showErrorHandler site e))
+                ,("/resolve", toggleErrorHandler site e)
+                ,("/issue", issueErrorHandler site e)]
+
+showErrorHandler :: Site -> ErrorSummary -> AppHandler ()
+showErrorHandler site e = do
+  exs <- getErrorExamples e
+  renderWithSplices "sites/error/show" (do "site" ## I.runChildrenWith (siteSplice site)
+                                           errorSplices e
+                                           "examples" ## examplesSplices exs)
+
+toggleErrorHandler :: Site -> ErrorSummary -> AppHandler ()
+toggleErrorHandler site e = do
+    r <- toggle (errorResolved e)
+    updateErrorSummary (siteId site) (e { errorResolved = r})
+    redirect (errorPath e)
+  where toggle (Just _) = return Nothing
+        toggle Nothing = fmap Just $ liftIO getCurrentTime
+
+issueErrorHandler :: Site -> ErrorSummary -> AppHandler ()
+issueErrorHandler site e = do
+   i <- getParam "issue"
+   let e' = case i of
+              Nothing -> e { errorIssueId = Nothing }
+              Just issue_id -> e { errorIssueId = Just (T.decodeUtf8 issue_id) }
+   updateErrorSummary (siteId site) e'
+   redirect (errorPath e')

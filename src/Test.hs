@@ -3,7 +3,7 @@
 module Test.Top where
 
 import qualified Data.Map as M
-import Data.Maybe (fromJust)
+import Data.Maybe (isJust, fromJust)
 import Data.Text (Text)
 import Control.Applicative
 import Control.Monad (void)
@@ -216,7 +216,29 @@ main = do
            contains (get site_url) (T.decodeUtf8 er_url)
          name "error url should exist" $ do
            succeeds (get er_url)
-
+         name "toggling error should result in resolved changing" $ do
+           redirectsto (post (B.append er_url "/resolve") $ params []) (T.decodeUtf8 er_url)
+           equals (Just True) (fmap (fmap (isJust . errorResolved)) (getErrorById site (errorId er)))
+           redirectsto (post (B.append er_url "/resolve") $ params []) (T.decodeUtf8 er_url)
+           equals (Just False) (fmap (fmap (isJust . errorResolved)) (getErrorById site (errorId er)))
+         name "posting to issue should set issue id" $ do
+           redirectsto (post (B.append er_url "/issue") $ params [("issue", "1")])
+                       (T.decodeUtf8 er_url)
+           equals (Just (Just "1")) (fmap (fmap errorIssueId) (getErrorById site (errorId er)))
+         name "posting to issue without id should clear it" $ do
+           redirectsto (post (B.append er_url "/issue") $ params [])
+                       (T.decodeUtf8 er_url)
+           equals (Just Nothing) (fmap (fmap errorIssueId) (getErrorById site (errorId er)))
+         name "submitting a resolved error should mark it as unresolved"  $ do
+           now <- liftIO getCurrentTime
+           eval (updateErrorSummary (siteId site) (er { errorResolved = Just now}))
+           succeeds (post "/submit/error" $ params [("token", T.encodeUtf8 $ tokenText token)
+                                                    , ("url", "/foo")
+                                                    , ("message", "Maybe.fromJust: Nothing")
+                                                    , ("uid", "1")])
+           eval (do errs <- getMarkErrors 1
+                    processErrors errs)
+           equals (Just Nothing) (fmap (fmap errorResolved) (getErrorById site (errorId er)))
 
 
 -- Authentication

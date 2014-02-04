@@ -233,3 +233,6 @@ getLastExample e = singleQuery "select id, error_id, url, time, user_id from err
 
 deleteErrorQueueItem :: Int -> AppHandler ()
 deleteErrorQueueItem i = void $ execute "delete from errors_queue where id = ?" (Only i)
+
+updateErrorSummary :: Int -> ErrorSummary -> AppHandler ()
+updateErrorSummary site_id e = void $ execute "update errors set message = ?, resolved = ?, issue_id = ? where id = ? and site_id = ?" (errorMessage e, errorResolved e, errorIssueId e, errorId e, site_id)

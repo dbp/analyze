@@ -10,6 +10,7 @@ import Control.Concurrent (threadDelay)
 import Data.Time.Clock (UTCTime(..))
 import Data.Time.Calendar (fromGregorian)
 import Data.List (partition)
+import Data.Maybe
 
 import Snap.Test (get)
 import Snap.Snaplet.Test (evalHandler)
@@ -72,7 +73,10 @@ processErrors ((SiteError i si url msg uid tm):es) = do
         Nothing -> return ()
         Just ei ->
           void $ newErrorExample (ErrorExample (-1) ei url tm uid)
-    Just e ->
+    Just e -> do
+      if isJust (errorResolved e)
+         then updateErrorSummary si (e { errorResolved = Nothing})
+         else return ()
       void $ newErrorExample (ErrorExample (-1) (errorId e) url tm uid)
   deleteErrorQueueItem i
   processErrors es
