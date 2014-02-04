@@ -1,26 +1,82 @@
+/* colors from http://www.colourlovers.com/palette/660522/i_will_wait_for_you. */
 html {
    padding: 0;
    margin: 0;
-   background-color: #ffffff;
    font-family: Verdana, Helvetica, sans-serif;
 }
 body {
    padding: 0;
    margin: 0;
+   background-color: #79B5AC;
 }
 a {
-   text-decoration: underline;
+   padding: 3px;
+   background-color: #C78933;
+   color: #fff;
+   text-decoration: none;
 }
-a :hover {
+a:hover {
    cursor: pointer;
    text-decoration: underline;
 }
-img {
-   border: none;
+
+table {
+    background-color: #5E2F46;
+    color: #fff;
+    margin: 20px;
 }
+
+tr {
+    background-color: #79B5AC;
+}
+
+p, div.p {
+    background-color: #5E2F46;
+    color: #fff;
+    padding: 10px;
+    margin: 20px;
+}
+
+table td {
+    padding: 5px 10px;
+    background-color: #5E2F46;
+}
+
+table th {
+    padding: 5px 10px;
+}
+
 #content {
-   padding-left: 1em;
+    width: 80%;
+    margin: 10px auto;
+    background-color: #D6CEAA;
+    padding: 20px;
 }
-#info {
-   font-size: 60%;
+
+h1, h2, h3, h4, h5 {
+    color: #fff;
+    background-color: #C75233;
+    margin: 0;
+    font-weight: normal;
+    padding: 10px;
+}
+
+h4 {
+    margin-top: 20px;
+}
+
+.small {
+    font-size: 0.7em;
+}
+
+span.right {
+    float: right;
+}
+
+h1 span.right {
+    font-size: 0.5em;
+}
+
+h4 span.right {
+    font-size: 0.9em;
 }

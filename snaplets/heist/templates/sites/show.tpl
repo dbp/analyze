@@ -1,6 +1,6 @@
 <apply template="base">
 
-  <h3><name/></h3>
+  <bind tag="site-name"><name/></bind>
 
   <ignore>dynamic scope - beware!</ignore>
   <bind tag="error-summary">
@@ -16,37 +16,65 @@
   <rebind old="id" new="site-id"/>
   <errors>
     <not-resolved>
-      <error-summary/>
-      (last happened at <example><time/></example>)<br/>
+      <p>
+        <error-summary/>
+        (last happened at <example><time/></example>)
+      </p>
     </not-resolved>
   </errors>
 
+  <h4>Top URLs Today</h4>
+  <table>
+    <tr>
+      <th>url</th>
+      <th>method</th>
+      <th>hits</th>
+      <th>max</th>
+      <th>min</th>
+      <th>avg</th>
+      <th>var</th>
+    </tr>
+    <visits>
+      <tr>
+        <td><url/></td>
+        <td><method/></td>
+        <td><hits/></td>
+        <td><max/>ms</td>
+        <td><min/>ms</td>
+        <td><avg/>ms</td>
+        <td><var/>ms</td>
+      </tr>
+    </visits>
+  </table>
+
+
   <h4>Days</h4>
-  <days>
-    <a href="/site/${id}/day/${formatted}"><formatted/></a> |
-  </days>
+  <p>
+    <days>
+      <a href="/site/${id}/day/${formatted}"><formatted/></a> |
+    </days>
+  </p>
 
   <h4>Resolved Errors</h4>
   <errors>
     <is-resolved>
-      <error-summary/>
-      (resolved at <resolved/>)<br/>
+      <p>
+        <error-summary/>
+        (resolved at <resolved/>)
+      </p>
     </is-resolved>
   </errors>
 
 
   <h4>Tokens</h4>
-  <a href="/site/${id}/token/new">Create New Token</a><br/>
-  <tokens>
-    <not-invalidated>
-      <br/>
-      <div>
-        <token/> (<created/>)<br/>
-        <ul>
-          <li>/submit/visit?url=FOO&render=NNN&token=<token/></li>
-          <li>/submit/error?url=FOO&message=BAR&uid=N&token=<token/></li>
-        </ul>
-      </div>
-    </not-invalidated>
-  </tokens>
+  <div class="p">
+    <a href="/site/${id}/token/new">Create New Token</a><br/>
+    <tokens>
+      <not-invalidated>
+        <div class="p">
+          <token/> (<created/>)<br/>
+        </div>
+      </not-invalidated>
+    </tokens>
+  </div>
 </apply>

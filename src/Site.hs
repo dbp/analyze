@@ -40,6 +40,18 @@ rebindSplice = do
            modifyHS $ I.bindSplice new splice
            return []
 
+nonEmptySplice :: I.Splice AppHandler
+nonEmptySplice = do
+  node <- getParamNode
+  let attrs = do t <- X.getAttribute "tag" node
+                 c <- X.getAttribute "couldbe" node
+                 return (t, c)
+
+  case attrs of
+    Nothing -> return []
+    Just (tag, couldbe) -> if tag == T.concat ["${", couldbe, "}"]
+                              then return []
+                              else return (X.childNodes node)
 ------------------------------------------------------------------------------
 -- | The application initializer.
 app :: SnapletInit App App
@@ -47,6 +59,7 @@ app = makeSnaplet "app" "An analyzer application" Nothing $ do
     let defaultHeistConfig = mempty { hcLoadTimeSplices = defaultLoadTimeSplices
                                     , hcInterpretedSplices = do
                                         "rebind" ## rebindSplice
+                                        "nonempty" ## nonEmptySplice
                                         bindStrictTag ## bindStrictImpl }
     h <- nestSnaplet "" heist $ heistInit' "templates" defaultHeistConfig
     s <- nestSnaplet "sess" sess $

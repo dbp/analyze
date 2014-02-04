@@ -9,6 +9,7 @@ import           Snap.Snaplet.Heist
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import           Snap.Core
+import           Snap.Util.FileServe
 import           Heist
 ------------------------------------------------------------------------------
 import           Application
@@ -26,6 +27,7 @@ routes = [ ("", ifTop indexHandler)
          , ("/site", withAccount sitesRoutes)
          , ("/auth", authRoutes)
          , ("/submit", submitRoutes)
+         , ("/static", serveDirectory "static")
          , ("", notFoundHandler)
          ]
 

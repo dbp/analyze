@@ -169,19 +169,21 @@ newDayVisit :: DayVisit -> AppHandler ()
 newDayVisit (DayVisit d s u m h mx mn avg var) =
   void $ execute "insert into day_visits (day, site_id, url, method, hits, max_time, min_time, avg_time, var_time) values (?,?,?,?,?,?,?,?,?)" (d, s, u, m, h, mx, mn, avg, var)
 
-
 updateDayVisit :: DayVisit -> AppHandler ()
 updateDayVisit (DayVisit d s u m h mx mn avg var) =
   void $ execute "update day_visits set hits = ?, max_time = ?, min_time = ?, avg_time = ?, var_time = ? where day = ? and site_id = ? and url = ? and method = ?" (h, mx, mn, avg, var, d, s, u, m)
 
 siteDayVisits :: Site -> AppHandler [DayVisit]
-siteDayVisits s = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ?" (Only $ siteId s)
+siteDayVisits s = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? order by hits desc" (Only $ siteId s)
 
 getDaysVisits :: Site -> Day -> AppHandler [DayVisit]
-getDaysVisits s d = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ?" (siteId s, d)
+getDaysVisits s d = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? order by hits desc" (siteId s, d)
 
 getDaysWithVisits :: Site -> AppHandler [Day]
 getDaysWithVisits s = fmap (map head) $ query "select distinct day from day_visits where site_id = ? order by day desc" (Only (siteId s))
+
+getTopDayVisits :: Site -> Day -> AppHandler [DayVisit]
+getTopDayVisits s d = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? order by log(hits)*log(avg_time + 1) desc limit 10" (siteId s, d)
 
 clearErrorsQueue :: AppHandler ()
 clearErrorsQueue = void $ execute_ "delete from errors_queue"

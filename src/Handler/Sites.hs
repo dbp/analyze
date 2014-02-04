@@ -97,11 +97,14 @@ showSiteHandler :: Account -> Site -> AppHandler ()
 showSiteHandler account site = do
   tokens <- getTokens site
   days <- getDaysWithVisits site
+  today <- fmap utctDay $ liftIO getCurrentTime
+  vs <- getTopDayVisits site today
   errs <- getSiteErrors site
   exs <- mapM getLastExample errs
   renderWithSplices "sites/show" (siteSplice site
                                   <> ("tokens" ## tokensSplice tokens)
                                   <> ("days" ## daysWithVisitsSplice days)
+                                  <> ("visits" ## dayVisitsSplice vs)
                                   <> ("errors" ## errorsLastExSplice (zip errs exs)))
 
 editSiteHandler :: Account -> Site -> AppHandler ()
@@ -127,7 +130,8 @@ dayHandler account site = do
     Just d -> do
       vs <- getDaysVisits site d
       renderWithSplices "sites/day/show" (siteSplice site
-                                         <> ("days" ## dayVisitsSplice vs))
+                                         <> (do "days" ## dayVisitsSplice vs
+                                                "date" ## I.textSplice (T.decodeUtf8 (fromJust md))))
 
 errorHandler :: Account -> Site -> AppHandler ()
 errorHandler account site = do
