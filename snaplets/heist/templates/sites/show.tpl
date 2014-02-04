@@ -24,29 +24,7 @@
   </errors>
 
   <h4>Top URLs Today</h4>
-  <table>
-    <tr>
-      <th>url</th>
-      <th>method</th>
-      <th>hits</th>
-      <th>max</th>
-      <th>min</th>
-      <th>avg</th>
-      <th>var</th>
-    </tr>
-    <visits>
-      <tr>
-        <td><url/></td>
-        <td><method/></td>
-        <td><hits/></td>
-        <td><max/>ms</td>
-        <td><min/>ms</td>
-        <td><avg/>ms</td>
-        <td><var/>ms</td>
-      </tr>
-    </visits>
-  </table>
-
+  <apply template="hit_table"></apply>
 
   <h4>Days</h4>
   <p>

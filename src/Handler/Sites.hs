@@ -130,7 +130,7 @@ dayHandler account site = do
     Just d -> do
       vs <- getDaysVisits site d
       renderWithSplices "sites/day/show" (siteSplice site
-                                         <> (do "days" ## dayVisitsSplice vs
+                                         <> (do "visits" ## dayVisitsSplice vs
                                                 "date" ## I.textSplice (T.decodeUtf8 (fromJust md))))
 
 errorHandler :: Account -> Site -> AppHandler ()
