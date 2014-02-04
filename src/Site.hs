@@ -16,6 +16,7 @@ import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Snaplet.PostgresqlSimple
 import           Heist
+import           Heist.Splices.BindStrict
 import qualified Heist.Interpreted as I
 import qualified Text.XmlHtml as X
 ------------------------------------------------------------------------------
@@ -44,7 +45,9 @@ rebindSplice = do
 app :: SnapletInit App App
 app = makeSnaplet "app" "An analyzer application" Nothing $ do
     let defaultHeistConfig = mempty { hcLoadTimeSplices = defaultLoadTimeSplices
-                                    , hcInterpretedSplices = "rebind" ## rebindSplice }
+                                    , hcInterpretedSplices = do
+                                        "rebind" ## rebindSplice
+                                        bindStrictTag ## bindStrictImpl }
     h <- nestSnaplet "" heist $ heistInit' "templates" defaultHeistConfig
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)

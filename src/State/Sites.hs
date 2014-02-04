@@ -226,7 +226,10 @@ newErrorExample (ErrorExample _ e url time uid) = do
   return r
 
 getErrorExamples :: ErrorSummary -> AppHandler [ErrorExample]
-getErrorExamples e = query "select id, error_id, url, time, user_id from errors_examples where error_id = ?" (Only (errorId e))
+getErrorExamples e = query "select id, error_id, url, time, user_id from errors_examples where error_id = ? order by time desc" (Only (errorId e))
+
+getLastExample :: ErrorSummary -> AppHandler (Maybe ErrorExample)
+getLastExample e = singleQuery "select id, error_id, url, time, user_id from errors_examples where error_id = ? order by time desc limit 1" (Only (errorId e))
 
 deleteErrorQueueItem :: Int -> AppHandler ()
 deleteErrorQueueItem i = void $ execute "delete from errors_queue where id = ?" (Only i)

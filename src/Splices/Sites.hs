@@ -12,6 +12,7 @@ import           Data.Time.Format (formatTime)
 import           System.Locale (defaultTimeLocale)
 import qualified Data.Text as T
 import           Data.Maybe
+import           Data.Monoid
 ---------------------------------------
 import           Application
 import           State.Sites
@@ -69,6 +70,11 @@ dayVisitSplice (DayVisit day si url meth hits mx mn avg var) = do
   "avg" ## I.textSplice $ tshow' 4 avg
   "var" ## I.textSplice $ tshow' 4 var
 
+
+errorsLastExSplice :: [(ErrorSummary, Maybe ErrorExample)] -> I.Splice AppHandler
+errorsLastExSplice = I.mapSplices (I.runChildrenWith . errorLastExSplices)
+  where errorLastExSplices (e, mx) =
+          (errorSplices e) <> (maybe mempty (("example" ##) . I.runChildrenWith . exampleSplices)) mx
 
 errorsSplice :: [ErrorSummary] -> I.Splice AppHandler
 errorsSplice = I.mapSplices (I.runChildrenWith . errorSplices)

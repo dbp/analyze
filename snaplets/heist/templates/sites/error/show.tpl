@@ -9,8 +9,8 @@
 <p>Created at <created/></p>
 
 <has-issue-id>
-  <bind tag="lnk"><site><issue-link id="${issue-id}"/></site></bind>
-  Issue: <a href="${lnk}"><lnk/></a>
+  <bindStrict tag="lnk-iss"><site><issue-link id="${issue-id}"/></site></bindStrict>
+  Issue: <a href="${lnk-iss}"><lnk-iss/></a>
 </has-issue-id>
 <br/>
 Examples:
@@ -28,8 +28,8 @@ Examples:
       <td><time/></td>
       <td>
         <has-user-id>
-          <bind tag="lnk"><site><user-link id="${user-id}"/></site></bind>
-          <a href="${lnk}"><lnk/></a>
+          <bindStrict tag="lnk-us"><site><user-link id="${user-id}"/></site></bindStrict>
+          <a href="${lnk-us}"><lnk-us/></a>
         </has-user-id>
       </td>
     </tr>

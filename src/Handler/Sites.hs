@@ -94,10 +94,11 @@ showSiteHandler account site = do
   tokens <- getTokens site
   days <- getDaysWithVisits site
   errs <- getSiteErrors site
+  exs <- mapM getLastExample errs
   renderWithSplices "sites/show" (siteSplice site
                                   <> ("tokens" ## tokensSplice tokens)
                                   <> ("days" ## daysWithVisitsSplice days)
-                                  <> ("errors" ## errorsSplice errs))
+                                  <> ("errors" ## errorsLastExSplice (zip errs exs)))
 
 editSiteHandler :: Account -> Site -> AppHandler ()
 editSiteHandler account site = do

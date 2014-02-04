@@ -5,7 +5,8 @@
   <h4>Errors</h4>
   <rebind old="id" new="site-id"/>
   <errors>
-    <message/> <a href="/site/${site-id}/error/${id}">view</a><br/>
+    <message/> (last happened at <example><time/></example>)
+    <a href="/site/${site-id}/error/${id}">view</a><br/>
   </errors>
 
   <h4>Days</h4>
