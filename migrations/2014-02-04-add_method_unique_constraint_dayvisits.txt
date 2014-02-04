@@ -1,0 +1,10 @@
+Description: (Description here.)
+Created: 2014-02-04 21:36:33.611244 UTC
+Depends: 2014-01-30-add_method_to_visits 2014-01-09-add-processing-to-queues 2014-01-07-fix-day-visits-unique-constraint 2014-01-02-base-schema
+Apply:
+  ALTER TABLE day_visits DROP CONSTRAINT day_visits_day_site_id_unique;
+  ALTER TABLE day_visits ADD CONSTRAINT day_visits_day_site_id_unique UNIQUE (day, site_id, url, method);
+
+Revert:
+  ALTER TABLE day_visits DROP CONSTRAINT day_visits_day_site_id_unique;
+  ALTER TABLE day_visits ADD CONSTRAINT day_visits_day_site_id_unique UNIQUE (day, site_id, url, method);
