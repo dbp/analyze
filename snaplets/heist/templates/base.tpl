@@ -7,17 +7,22 @@
     <div id="content">
 
       <h1>
-        Analyze
-        <span class="small">
-          by
-          <a href="http://positionstudios.com">Position Studios</a>
-        </span>
+        <div class="title">
+          <div class="big">Analyze</div>
+          <div class="small">
+            by
+            <a href="http://positionstudios.com">Position Studios</a>
+          </div>
+        </div>
         <nonempty couldbe="site-name" tag="${site-name}">
-          <span class="small">for</span>
-          <site-name/>
+          <div class="site-name">
+            <span class="small">for</span>
+            <site-name/>
+          </div>
         </nonempty>
         <span class="right">
             <ifLoggedIn>
+              <a href="/">Home</a> |
               <a href="/auth/logout">Logout</a>
             </ifLoggedIn>
             <ifLoggedOut>
