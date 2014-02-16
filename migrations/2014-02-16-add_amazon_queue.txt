@@ -1,0 +1,27 @@
+Description: (Description here.)
+Created: 2014-02-16 17:40:08.06401 UTC
+Depends: 2014-02-04-add_method_unique_constraint_dayvisits 2014-01-30-add_method_to_visits 2014-01-09-add-time-to-errors-queue-examples 2014-01-09-add-processing-to-queues 2014-01-07-fix-day-visits-unique-constraint 2014-01-06-make-token-created-required 2014-01-06-add-site-users 2014-01-02-base-schema
+Apply:
+  CREATE TABLE amazon_email_queue (
+      id serial PRIMARY KEY,
+      to_addr text NOT NULL,
+      to_name text,
+      from_addr text NOT NULL,
+      from_name text NOT NULL,
+      subject text NOT NULL,
+      body text NOT NULL,
+      date timestamptz NOT NULL DEFAULT now(),
+      sent_at timestamptz,
+      failed_count integer NOT NULL DEFAULT 0,
+      html boolean NOT NULL DEFAULT false,
+      processing boolean NOT NULL DEFAULT false
+  );
+
+  CREATE INDEX ON amazon_email_queue (sent_at);
+  CREATE INDEX ON amazon_email_queue (date);
+  CREATE INDEX ON amazon_email_queue (failed_count);
+  CREATE INDEX ON amazon_email_queue (processing);
+
+
+Revert:
+  DROP TABLE amazon_email_queue;

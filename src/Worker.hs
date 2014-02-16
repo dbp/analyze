@@ -11,6 +11,7 @@ import Data.Time.Clock (UTCTime(..))
 import Data.Time.Calendar (fromGregorian)
 import Data.List (partition)
 import Data.Maybe
+import qualified Data.Text as T
 
 import Snap.Test (get)
 import Snap.Snaplet.Test (evalHandler)
@@ -19,6 +20,8 @@ import Application
 import Site (app)
 
 import State.Sites
+import State.Email
+import Helpers.Text
 
 main :: IO ()
 main = do
@@ -71,15 +74,32 @@ processErrors ((SiteError i si url msg uid tm):es) = do
       mei <- newErrorSummary (ErrorSummary (-1) si msg Nothing (UTCTime (fromGregorian 0 0 0) 0) Nothing)
       case mei of
         Nothing -> return ()
-        Just ei ->
+        Just ei -> do
           void $ newErrorExample (ErrorExample (-1) ei url tm uid)
+          email ei
     Just e -> do
       if isJust (errorResolved e)
-         then updateErrorSummary si (e { errorResolved = Nothing})
+         then do updateErrorSummary si (e { errorResolved = Nothing})
+                 email (errorId e)
          else return ()
       void $ newErrorExample (ErrorExample (-1) (errorId e) url tm uid)
   deleteErrorQueueItem i
   processErrors es
+  where email ei = do ms <- getSite si
+                      case ms of
+                        Nothing -> return ()
+                        Just site ->
+                          sendEmail "dbp@dbpmail.net"
+                                    (T.concat [ "Analyze for "
+                                              , siteName site
+                                              , "; Error: "
+                                              , msg])
+                                    (T.concat ["View error at: "
+                                              , "http://analyze.positionstudios.com/site/"
+                                              , tshow $ siteId site
+                                              , "/error/"
+                                              , tshow ei
+                                              , "\n\n"])
 
 
 average :: [Double] -> Double
