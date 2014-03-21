@@ -1,3 +1,7 @@
+export ZDOTDIR := ./
+
+SHELL := /usr/bin/env zsh
+
 USER = host
 SERVER = analyze.positionstudios.com
 
@@ -5,7 +9,7 @@ all:
 	cabal install -fdevelopment && ./dist/build/analyze/analyze -e devel
 
 test:
-	runghc -isrc src/Test.hs
+	cabal exec runghc -isrc src/Test.hs
 
 run:
 	./dist/build/analyze/analyze

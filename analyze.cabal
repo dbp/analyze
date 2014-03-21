@@ -49,7 +49,7 @@ Executable analyze
     digestive-functors-heist,
     random,
     old-locale,
-    snap-testing >= 0.2
+    snap-testing >= 0.4
 
   if flag(old-base)
     build-depends:

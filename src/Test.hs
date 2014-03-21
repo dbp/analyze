@@ -18,6 +18,7 @@ import Data.Time.Clock
 import Data.Time.Format
 import System.Locale (defaultTimeLocale)
 import System.Random (randomIO)
+import System.IO (hPutStrLn, stderr)
 
 import Snap.Core
 import Snap.Snaplet
@@ -34,7 +35,8 @@ import Worker hiding (main)
 
 main :: IO ()
 main = do
-  runSnapTests [consoleReport, linuxDesktopReport] (route routes) app $ do
+  let conf = defaultConfig { reportGenerators = [consoleReport, linuxDesktopReport]}
+  runSnapTests conf (route routes) app $ do
   name "online variance" $
     quickCheck varianceProp
   name "/" $ do
