@@ -11,8 +11,10 @@ import           Data.Time.Calendar
 import           Data.Time.Format (formatTime)
 import           System.Locale (defaultTimeLocale)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Data.Maybe
 import           Data.Monoid
+import           Snap.Core
 ---------------------------------------
 import           Application
 import           State.Sites
@@ -63,6 +65,7 @@ dayVisitSplice (DayVisit day si url meth hits mx mn avg var) = do
   "date" ## I.textSplice  $ T.pack $ formatTime defaultTimeLocale "%F" day
   "site-id" ## I.textSplice $ tshow si
   "url" ## I.textSplice $ fromMaybe "NONE" url
+  "url-encoded" ## I.textSplice $ maybe "NONE" (T.decodeUtf8 . urlEncode . T.encodeUtf8) url
   "method" ## I.textSplice meth
   "hits" ## I.textSplice $ tshow hits
   "max" ## I.textSplice $ tshow' 4 mx

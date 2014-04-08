@@ -1,6 +1,11 @@
-<table>
+<apply template="base">
+  <h4>
+    Last 30 days for <url/> <method/>
+  </h4>
+
+  <table>
   <tr>
-    <th>url</th>
+    <th>date</th>
     <th>hits</th>
     <th>avg</th>
     <th>max</th>
@@ -9,7 +14,7 @@
   </tr>
   <visits>
     <tr>
-      <td><a href="/site/${id}/url/${url-encoded}/${method}"><method/> <url/></a></td>
+      <td><date/></td>
       <td><hits/></td>
       <td><avg/>ms</td>
       <td><max/>ms</td>
@@ -17,4 +22,6 @@
       <td><var/></td>
     </tr>
   </visits>
-</table>
+  </table>
+
+</apply>

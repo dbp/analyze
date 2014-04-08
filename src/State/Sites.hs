@@ -185,6 +185,9 @@ getDaysWithVisits s = fmap (map head) $ query "select distinct day from day_visi
 getTopDayVisits :: Site -> Day -> AppHandler [DayVisit]
 getTopDayVisits s d = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and day = ? order by log(hits)*log(avg_time + 1) desc limit 10" (siteId s, d)
 
+getDayVisitsForUrl :: Site -> Text -> Text -> AppHandler [DayVisit]
+getDayVisitsForUrl s u m = query "select day, site_id, url, method, hits, max_time, min_time, avg_time, var_time from day_visits where site_id = ? and url = ? and method = ? order by day desc limit 30" (siteId s, u, m)
+
 clearErrorsQueue :: AppHandler ()
 clearErrorsQueue = void $ execute_ "delete from errors_queue"
 

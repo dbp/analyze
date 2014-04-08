@@ -8,3 +8,8 @@ moo.sh
 moo_test.sh
 *.#*
 *#
+.cabal-sandbox
+/analyze
+/worker
+/analyze.keter
+/cabal.sandbox.config

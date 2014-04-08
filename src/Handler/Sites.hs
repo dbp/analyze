@@ -90,6 +90,8 @@ siteHandler account = do
                     , ("/edit", editSiteHandler account site)
                     , ("/token/new", newTokenHandler account site)
                     , ("/day/:day", dayHandler account site)
+                    , ("/url/:path/:method", urlHandler account site)
+                    , ("/url/:path/:method/graph.svg", urlGraphHandler account site)
                     , ("/error/:id", errorHandler account site)
                     ]
 
@@ -132,6 +134,30 @@ dayHandler account site = do
       renderWithSplices "sites/day/show" (siteSplice site
                                          <> (do "visits" ## dayVisitsSplice vs
                                                 "date" ## I.textSplice (T.decodeUtf8 (fromJust md))))
+
+urlHandler :: Account -> Site -> AppHandler ()
+urlHandler account site = do
+  mp <- getParam "path"
+  mm <- getParam "method"
+  case ((,) <$> (fmap T.decodeUtf8 $ urlDecode =<< mp) <*> (fmap T.decodeUtf8 mm)) of
+    Nothing -> pass
+    Just (url, meth) -> do
+      vs <- getDayVisitsForUrl site url meth
+      renderWithSplices "sites/url/show" (siteSplice site
+                                         <> (do "visits" ## dayVisitsSplice vs
+                                                "url" ## I.textSplice url
+                                                "method" ## I.textSplice meth))
+
+urlGraphHandler :: Account -> Site -> AppHandler ()
+urlGraphHandler account site = do
+  mp <- getParam "path"
+  mm <- getParam "method"
+  case ((,) <$> (fmap T.decodeUtf8 $ urlDecode =<< mp) <*> (fmap T.decodeUtf8 mm)) of
+    Nothing -> pass
+    Just (url, meth) -> do
+      vs <- getDayVisitsForUrl site url meth
+      undefined
+
 
 errorHandler :: Account -> Site -> AppHandler ()
 errorHandler account site = do
