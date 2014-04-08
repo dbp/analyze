@@ -1,0 +1,16 @@
+stanzas:
+  - type: webapp
+    exec: ../analyze
+    args:
+      - -e
+      - production
+    host: analyze.positionstudios.com
+  - type: background
+    exec: ../worker
+    args:
+      - --production
+  - type: background
+    exec: /var/www/amazon-emailer
+    args:
+      - /var/www/production.cfg
+postgres: false

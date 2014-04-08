@@ -14,30 +14,18 @@ test:
 run:
 	./dist/build/analyze/analyze
 
-deploy: send
-	ssh $(USER)@$(SERVER) "/var/www/scripts/deploy.sh"
-
-
-deploy-static: send-static
-	ssh $(USER)@$(SERVER) "/var/www/scripts/reload.sh"
-
-send: send-static
-	cabal install; \
-	scp dist/build/analyze/analyze $(USER)@$(SERVER):analyze-new; \
-        scp dist/build/worker/worker $(USER)@$(SERVER):worker-new
-
-send-static:
-	scp angel.conf $(USER)@$(SERVER):
-	rsync --checksum -avz -e ssh static/* $(USER)@$(SERVER):static
-	rsync --checksum -avz -e ssh snaplets/* $(USER)@$(SERVER):snaplets
-	rsync --checksum -avz -e ssh scripts/* $(USER)@$(SERVER):scripts
-
-start:
-	ssh $(USER)@$(SERVER) "/var/www/scripts/start.sh"
-
 migrate:
 	rsync --checksum -ave 'ssh '  migrations/* $(USER)@$(SERVER):migrations
 	ssh $(USER)@$(SERVER) "/var/www/moo.sh upgrade"
 
-rollback:
-	ssh $(USER)@$(SERVER) "/var/www/scripts/rollback.sh"
+
+keter-build:
+	cabal install -j
+	cp .cabal-sandbox/bin/analyze analyze
+	cp .cabal-sandbox/bin/worker worker
+	tar czfv analyze.keter analyze worker config production.cfg static snaplets log/_blank
+
+keter-deploy:
+	scp analyze.keter $(SERVER):/opt/keter/incoming
+
+deploy: keter-build keter-deploy
